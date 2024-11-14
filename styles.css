@@ -1,0 +1,380 @@
+:root {
+    --app-height: 100%;
+}
+
+/* Base Styles */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+img {
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.fantasy-font {
+    font-family: 'MedievalSharp', cursive;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes zoomBg {
+    from { transform: scale(1); }
+    to { transform: scale(1.1); }
+}
+
+@keyframes floating {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+    100% { transform: translateY(0px); }
+}
+
+@keyframes glow {
+    from { text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 15px #e60073; }
+    to { text-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 30px #e60073; }
+}
+
+@keyframes starGlow {
+    0% { transform: scale(0.8); opacity: 0.4; filter: hue-rotate(0deg); }
+    50% { transform: scale(1.2); opacity: 1; filter: hue-rotate(180deg); }
+    100% { transform: scale(0.8); opacity: 0.4; filter: hue-rotate(360deg); }
+}
+
+@keyframes treasureChest {
+    0% { transform: rotate(-5deg) translateY(0px); }
+    50% { transform: rotate(5deg) translateY(-5px); }
+    100% { transform: rotate(-5deg) translateY(0px); }
+}
+
+@keyframes blackHole {
+    0% { transform: scale(1) rotate(0deg); }
+    50% { transform: scale(1.3) rotate(180deg); }
+    100% { transform: scale(1) rotate(360deg); }
+}
+
+@keyframes collectEffect {
+    0% { transform: scale(1); opacity: 1; filter: brightness(1); }
+    50% { transform: scale(2); opacity: 0.5; filter: brightness(2); }
+    100% { transform: scale(0); opacity: 0; filter: brightness(3); }
+}
+
+@keyframes typing {
+    from { width: 0 }
+    to { width: 100% }
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+
+@keyframes floatingPolygon {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    33% { transform: translate(30px, -30px) rotate(120deg); }
+    66% { transform: translate(-30px, 30px) rotate(240deg); }
+    100% { transform: translate(0, 0) rotate(360deg); }
+}
+
+/* Screen Styles */
+#startScreen, #storyScreen, #gameScreen {
+    height: 100vh;
+    height: var(--app-height);
+    width: 100vw;
+    position: fixed;
+    top: 0;
+    left: 0;
+    overflow: hidden;
+}
+
+/* Game World Styles */
+.game-world-wrapper {
+    position: relative;
+    width: 100%;
+    height: var(--app-height);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.8);
+    overflow: hidden;
+}
+
+.game-world-background {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.game-world-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Magical Elements */
+.magical-element {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.magical-element.star::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle, rgba(255,215,0,0.8) 0%, rgba(255,215,0,0) 70%);
+    filter: blur(2px);
+    animation: starGlow 2s infinite;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.magical-element.chest::before {
+    content: '💎';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    animation: treasureChest 3s infinite;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.magical-element.blackhole::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle, rgba(0,0,0,0.8) 0%, rgba(128,0,128,0.4) 50%, rgba(0,0,0,0) 70%);
+    filter: blur(3px);
+    animation: blackHole 4s infinite;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.magical-element:hover::before,
+.magical-element:active::before {
+    opacity: 1;
+}
+
+/* Floating Elements */
+.floating-polygon {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.05);
+    animation: floatingPolygon 15s infinite linear;
+    pointer-events: none;
+}
+
+/* Modal Styles */
+.wallet-modal, .success-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(5px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s ease;
+    z-index: 50;
+    min-height: var(--app-height);
+}
+
+.wallet-modal.active {
+    opacity: 1;
+    pointer-events: auto;
+      display: flex;
+}
+
+.wallet-modal-content {
+    background: rgba(31,41,55,0.95);
+    border: 1px solid rgba(147,51,234,0.3);
+    border-radius: 1rem;
+    padding: 2rem;
+    width: 90%;
+    max-width: 360px;
+    transform: translateY(20px);
+    transition: transform 0.3s ease;
+}
+
+.wallet-modal.active .wallet-modal-content {
+    transform: translateY(0);
+}
+
+/* Loading and Toast Styles */
+.loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.9);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.loading-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.error-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 1rem;
+    background: rgba(220,38,38,0.9);
+    color: white;
+    border-radius: 0.5rem;
+    z-index: 100;
+    animation: slideIn 0.3s ease-out;
+    max-width: 90%;
+    margin: 0 auto;
+}
+
+/* Utility Classes */
+.typing-text {
+    overflow: hidden;
+    white-space: nowrap;
+    animation: typing 3.5s steps(40, end);
+}
+
+.fade-in { animation: fadeIn 1s ease-in; }
+.fade-out { animation: fadeOut 1s ease-out; }
+.zoom-bg { animation: zoomBg 20s infinite alternate; }
+.floating { animation: floating 3s ease-in-out infinite; }
+.glowing { animation: glow 2s ease-in-out infinite alternate; }
+
+/* Button Styles */
+button {
+    min-height: 44px;
+    padding: 0.5rem 1rem;
+    touch-action: manipulation;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+button:active {
+    transform: scale(0.98);
+}
+/* Exit Game Button Styles */
+.game-controls {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.game-controls button {
+    background: rgba(147,51,234,0.9);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    min-width: 120px;
+    backdrop-filter: blur(5px);
+}
+
+.game-controls button:hover {
+    background: rgba(147,51,234,1);
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(147,51,234,0.5);
+}
+
+/* Screen Transitions for Game Controls */
+.game-controls button.fade-out {
+    animation: fadeOut 0.5s ease-out forwards;
+}
+
+.game-controls button.fade-in {
+    animation: fadeIn 0.5s ease-in forwards;
+}
+
+/* Ensure game controls are always clickable */
+#gameScreen .game-controls {
+    position: fixed;
+    z-index: 1000;
+}
+
+#gameScreen .game-controls button {
+    position: relative;
+    z-index: 1001;
+}
+
+/* Responsive Styles */
+@media screen and (max-width: 768px) {
+    .magical-element {
+        width: 30px;
+        height: 30px;
+    }
+
+    .wallet-modal-content {
+        width: 95%;
+        max-width: 340px;
+        padding: 1rem;
+    }
+
+    .text-6xl {
+        font-size: 2.5rem;
+    }
+
+    button {
+        min-height: 48px; /* Larger touch target on mobile */
+    }
+
+    .floating-polygon {
+        width: 20px;
+        height: 20px;
+    }
+}
+
+/* Prevent text selection */
+* {
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+
+/* Safe area handling for notched devices */
+@supports (padding: max(0px)) {
+    .wallet-modal, 
+    .success-modal,
+    .error-toast {
+        padding-left: max(env(safe-area-inset-left), 1rem);
+        padding-right: max(env(safe-area-inset-right), 1rem);
+        padding-top: max(env(safe-area-inset-top), 1rem);
+        padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+    }
+}

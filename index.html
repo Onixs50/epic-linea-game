@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Epic NFT Story Game</title>
+       <!-- Mobile Height Fix Script -->
+    <script>
+        window.addEventListener('load', () => {
+            const appHeight = () => {
+                const doc = document.documentElement;
+                doc.style.setProperty('--app-height', `${window.innerHeight}px`);
+            };
+            window.addEventListener('resize', appHeight);
+            appHeight();
+        });
+    </script>
+
+    <!-- External CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+<!-- Custom CSS -->
+<link href="styles.css" rel="stylesheet">
+<!-- Responsive Styles -->
+<style>
+    :root {
+        --app-height: 100%;
+    }
+    
+    html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+    }
+
+    #startScreen {
+        height: 100vh;
+        width: 100vw;
+        position: fixed; /* startScreen همچنان fixed باشه */
+        top: 0;
+        left: 0;
+    }
+
+    #storyScreen {
+        min-height: 100vh;
+        width: 100vw;
+        position: relative; /* تغییر به relative برای اسکرول */
+        overflow-y: auto; /* اجازه اسکرول عمودی */
+        background: #111827;
+    }
+
+    #gameScreen {
+        height: 100vh;
+        width: 100vw;
+        position: fixed; /* gameScreen هم fixed باشه */
+        top: 0;
+        left: 0;
+    }
+
+    @media screen and (max-width: 768px) {
+        .game-world-wrapper { 
+            height: var(--app-height); 
+        }
+        .magical-element { 
+            width: 30px; 
+            height: 30px; 
+        }
+        .wallet-modal-content { 
+            width: 95%; 
+            max-width: 340px; 
+            padding: 1rem; 
+        }
+        .text-6xl { 
+            font-size: 2.5rem; 
+        }
+        
+        /* اضافه کردن padding برای story screen در موبایل */
+        #storyScreen {
+            padding: 1rem;
+        }
+    }
+</style>
+    <!-- Initial Scripts -->
+    <script>
+        // Initialize base game object with core UI functions
+window.game = {
+    showError(message) {
+        const toast = document.getElementById('errorToast');
+        if (toast) {
+            toast.textContent = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+    },
+    showTutorial() {
+        document.getElementById('tutorialModal').classList.remove('hidden');
+    },
+    closeTutorial() {
+        document.getElementById('tutorialModal').classList.add('hidden');
+    },
+    showWalletModal() {
+        document.getElementById('walletModal').classList.add('active');
+    },
+    closeWalletModal() {
+        document.getElementById('walletModal').classList.remove('active');
+    },
+
+    // Updated resetGame function
+    async resetGame() {
+        // Clear game state
+        this.mintedElements?.clear();
+        this.gameContent = null;
+        
+        const gameScreen = document.getElementById('gameScreen');
+        if (gameScreen) {
+            // Add fade-out animation
+            gameScreen.classList.add('fade-out');
+            
+            // Wait for animation to complete
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Hide game screen and show start screen
+            gameScreen.classList.add('hidden');
+            gameScreen.classList.remove('fade-out');
+            
+            // Reset start screen elements
+            const startScreen = document.getElementById('startScreen');
+            if (startScreen) {
+                startScreen.classList.remove('hidden');
+                startScreen.classList.add('fade-in');
+            }
+            
+            // Reset input and progress
+            const promptInput = document.getElementById('promptInput');
+            if (promptInput) promptInput.value = '';
+            
+            const charCount = document.getElementById('charCount');
+            if (charCount) charCount.textContent = '0/50';
+            
+            // Clear floating polygons
+            const polygons = document.querySelector('#floatingPolygons');
+            if (polygons) polygons.innerHTML = '';
+            
+            // Reset progress bar
+            const progressBar = document.getElementById('progressBar');
+            if (progressBar) progressBar.style.width = '0%';
+            
+            const progressText = document.getElementById('progressText');
+            if (progressText) progressText.textContent = '0/10 Elements';
+            
+            // Clear NFT elements
+            const nftElements = document.getElementById('nftElements');
+            if (nftElements) nftElements.innerHTML = '';
+        }
+        
+        return true;
+    },
+
+    // Updated exitGame function
+    async exitGame() {
+        try {
+            if (this.mintedElements?.size > 0) {
+                // Show confirmation modal for burning elements
+                this.showSuccessModal(
+                    'You have uncollected elements. Would you like to burn them and exit?',
+                    async () => {
+                        try {
+                            // Wait for burn transaction
+                            await walletHandler.burnElements();
+                            // Reset game after successful burn
+                            await this.resetGame();
+                        } catch (error) {
+                            console.error('Error during exit:', error);
+                            this.showError('Failed to burn elements. Please try again.');
+                        }
+                    },
+                    { showBurn: true }
+                );
+            } else {
+                // If no elements to burn, just reset
+                const success = await this.resetGame();
+                if (!success) {
+                    this.showError('Failed to exit game. Please try again.');
+                }
+            }
+        } catch (error) {
+            console.error('Error during exit:', error);
+            this.showError('Failed to exit game. Please try again.');
+        }
+    },
+
+    // Add showSuccessModal if not already defined
+    showSuccessModal(message, callback = null, options = {}) {
+        const modal = document.getElementById('successModal');
+        if (!modal) return;
+
+        const messageEl = document.getElementById('successMessage');
+        if (messageEl) messageEl.textContent = message;
+
+        // Handle button sections
+        const burnSection = document.getElementById('burnSection');
+        if (burnSection) {
+            burnSection.classList.toggle('hidden', !options.showBurn);
+            if (options.showBurn && callback) {
+                const burnButton = burnSection.querySelector('button');
+                if (burnButton) {
+                    burnButton.onclick = async () => {
+                        try {
+                            await callback();
+                            this.closeSuccessModal();
+                        } catch (error) {
+                            this.showError(error.message);
+                        }
+                    };
+                }
+            }
+        }
+
+        modal.classList.remove('hidden');
+    },
+
+    closeSuccessModal() {
+        const modal = document.getElementById('successModal');
+        if (modal) {
+            modal.classList.add('fade-out');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('fade-out');
+            }, 500);
+        }
+    }
+};
+    </script>
+</head>
+<body class="bg-gray-900 min-h-screen">
+    <!-- Error Toast -->
+    <div id="errorToast" class="error-toast hidden"></div>
+
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="hidden fixed inset-0 loading-overlay z-50 flex items-center justify-center">
+        <div class="text-center">
+            <div class="floating mb-8">
+                <div class="w-24 h-24 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            </div>
+            <h2 class="text-2xl text-white mb-4 fantasy-font">Creating Your Adventure</h2>
+            <p id="loadingText" class="text-purple-300 typing-text">Generating your epic world, brave hero...</p>
+        </div>
+    </div>
+
+    <!-- Wallet Modal -->
+    <div id="walletModal" class="wallet-modal">
+        <div class="wallet-modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl text-white fantasy-font">Connect Wallet</h3>
+                <button onclick="game.closeWalletModal()" class="text-gray-400 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <button onclick="game.connectWallet('metamask')" 
+                        class="w-full bg-gray-700 hover:bg-gray-600 p-4 rounded-lg flex items-center justify-between group transition-all duration-300">
+                    <div class="flex items-center">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" 
+                             alt="MetaMask" 
+                             class="w-8 h-8 mr-3">
+                        <span class="text-white text-lg">MetaMask</span>
+                    </div>
+                    <i class="fas fa-chevron-right text-gray-400 group-hover:text-white transform group-hover:translate-x-1 transition-all"></i>
+                </button>
+                
+                <button onclick="game.connectWallet('okx')" 
+                        class="w-full bg-gray-700 hover:bg-gray-600 p-4 rounded-lg flex items-center justify-between group transition-all duration-300">
+                    <div class="flex items-center">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/2/2c/OKX_logo.svg" 
+                             alt="OKX" 
+                             class="w-8 h-8 mr-3">
+                        <span class="text-white text-lg">OKX Wallet</span>
+                    </div>
+                    <i class="fas fa-chevron-right text-gray-400 group-hover:text-white transform group-hover:translate-x-1 transition-all"></i>
+</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tutorial Modal -->
+    <div id="tutorialModal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50">
+        <div class="max-w-2xl mx-auto mt-20 bg-gray-800 rounded-lg p-8">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl text-white fantasy-font">How to Play</h3>
+                <button onclick="game.closeTutorial()" class="text-white text-xl">&times;</button>
+            </div>
+            <div class="text-white space-y-4">
+                <p>1. Enter a magical prompt to begin your quest</p>
+                <p>2. Find and collect 10 hidden magical elements</p>
+                <p>3. Mint each element as an NFT</p>
+                <p>4. Complete your collection to defeat evil and save the realm!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="startScreen" class="relative min-h-screen">
+        <div class="absolute inset-0 overflow-hidden">
+            <img src="val.png" alt="Background" class="w-full h-full object-cover zoom-bg">
+        </div>
+        <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div class="container mx-auto px-4 text-center">
+               <h1 class="text-6xl mb-2 text-white fantasy-font glowing">Epic NFT Quest</h1>
+                 <p class="text-xl mb-1 text-gray-300">Life On Linea</p>
+                   <p class="text-sm text-gray-500">By onixia</p>                
+                <!-- Game Menu -->
+                <div class="flex justify-center space-x-4 mb-8">
+                    <button onclick="game.showTutorial()" 
+                            class="text-white fantasy-font hover:text-purple-300 transition-colors transform hover:scale-105">
+                        <i class="fas fa-book-open mr-2"></i>
+                        How to Play
+                    </button>
+
+                    <button onclick="game.checkExistingNFTs()" 
+                            class="text-white fantasy-font hover:text-purple-300 transition-colors transform hover:scale-105">
+                        <i class="fas fa-gem mr-2"></i>
+                        Check My NFTs
+                    </button>
+                </div>
+
+                <!-- Wallet Connection -->
+                <div class="mb-8" id="walletSection">
+                    <button onclick="game.showWalletModal()"
+                            id="connectWalletBtn"
+                            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105">
+                        <i class="fas fa-wallet mr-2"></i>
+                        Connect Wallet
+                    </button>
+
+                    <!-- Connected Wallet Info -->
+                    <div id="walletInfo" class="hidden">
+                        <div class="bg-gray-800 rounded-lg px-6 py-3 inline-flex items-center space-x-4">
+                            <span id="walletAddress" class="text-white"></span>
+                            <button onclick="game.disconnectWallet()" 
+                                    class="text-red-500 hover:text-red-400 transition-colors">
+                                <i class="fas fa-sign-out-alt mr-1"></i>
+                                Disconnect
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Game Start Section -->
+                <div id="gameStartSection" class="hidden">
+                    <div class="max-w-md mx-auto space-y-4">
+                        <!-- Quest Description -->
+                        <div class="text-white text-xl fantasy-font">
+                            Enter your prompt to create a unique quest and defeat the evil that threatens our realm!
+                        </div>
+
+                        <div class="relative">
+                            <input type="text" 
+                                   id="promptInput" 
+                                   maxlength="50"
+                                   class="w-full px-4 py-3 rounded-lg bg-gray-800 text-white border border-purple-500 focus:border-purple-700 focus:ring-2 focus:ring-purple-500 mb-2"
+                                   placeholder="Enter your story prompt..."
+                                   oninput="game.updateCharacterCount(this)">
+                            <div class="absolute top-3 right-3 text-gray-400">
+                                <i class="fas fa-magic"></i>
+                            </div>
+                            <div id="charCount" class="text-right text-gray-400 text-sm mb-4">0/50</div>
+                        </div>
+                        
+                        <button onclick="game.startGame()" 
+                                class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105 flex items-center justify-center">
+                            <i class="fas fa-play mr-2"></i>
+                            Start Your Quest (0.00002 ETH)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Story Screen -->
+    <div id="storyScreen" class="hidden min-h-screen bg-gray-900 relative">
+        <div class="container mx-auto px-4 py-8">
+            <!-- Story Title -->
+            <h2 id="storyTitle" class="text-4xl text-center text-white fantasy-font mb-8 glowing"></h2>
+            
+            <!-- Part 1 -->
+            <div id="storyPart1" class="fade-in">
+                <div class="max-w-4xl mx-auto mb-8">
+                    <div class="relative overflow-hidden rounded-lg shadow-2xl mb-4">
+                        <div class="aspect-w-16 aspect-h-9">
+                            <img id="storyImage1" class="w-full h-full object-cover select-none" alt="Story Scene 1">
+                        </div>
+                    </div>
+                    <p id="storyText1" class="text-white text-xl fantasy-font leading-relaxed"></p>
+                </div>
+                <button onclick="game.showStoryPart2()" 
+                        class="glowing text-white text-2xl fantasy-font hover:scale-110 transition-transform mx-auto block">
+                    <span>Continue the Tale</span>
+                    <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+
+            <!-- Part 2 -->
+            <div id="storyPart2" class="hidden fade-in">
+                <div class="max-w-4xl mx-auto mb-8">
+                    <div class="relative overflow-hidden rounded-lg shadow-2xl mb-4">
+                        <div class="aspect-w-16 aspect-h-9">
+                            <img id="storyImage2" class="w-full h-full object-cover select-none" alt="Story Scene 2">
+                        </div>
+                    </div>
+                    <p id="storyText2" class="text-white text-xl fantasy-font leading-relaxed"></p>
+                </div>
+                <button onclick="game.enterGame()" 
+                        class="glowing text-white text-2xl fantasy-font hover:scale-110 transition-transform mx-auto block group">
+                    <span>Enter the Challenge</span>
+                    <i class="fas fa-door-open ml-2 transform group-hover:rotate-12 transition-transform"></i>
+</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="gameScreen" class="hidden min-h-screen relative">
+        <!-- Animated Background -->
+        <div class="game-world-background absolute inset-0 bg-black">
+            <div id="floatingPolygons" class="absolute inset-0"></div>
+        </div>
+        
+        <!-- Boss Monster Warning -->
+        <div class="absolute top-20 left-1/2 transform -translate-x-1/2 text-center z-20">
+            <h2 class="text-3xl text-red-500 fantasy-font mb-4 glowing">Beware of the Evil Boss!</h2>
+            <p class="text-xl text-white fantasy-font">Find all 10 magical elements to defeat it!</p>
+        </div>
+
+        <!-- Game Controls -->
+        <div class="absolute top-4 left-4 space-y-2 z-10">
+            <button onclick="game.resetGame()" 
+                    class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 fantasy-font transform hover:scale-105 flex items-center space-x-2">
+                <i class="fas fa-undo-alt"></i>
+                <span>Reset Game</span>
+            </button>
+            <button onclick="game.exitGame()" 
+                    class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 fantasy-font transform hover:scale-105 flex items-center space-x-2">
+                <i class="fas fa-door-open"></i>
+                <span>Exit Game</span>
+            </button>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="absolute top-4 right-4 bg-black bg-opacity-70 rounded-lg p-4 z-10">
+            <div class="text-white mb-2 fantasy-font flex items-center">
+                <i class="fas fa-gem mr-2"></i>
+                <span>Elements Collected</span>
+            </div>
+            <div class="w-48 h-2 bg-gray-700 rounded-full overflow-hidden">
+                <div id="progressBar" 
+                     class="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500" 
+                     style="width: 0%"></div>
+            </div>
+            <div id="progressText" class="text-white text-center mt-1 fantasy-font">0/10 Elements</div>
+        </div>
+
+        <!-- Game World -->
+        <div class="game-world-wrapper">
+            <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+            <img id="gameWorldImage" class="game-world-image select-none max-h-[80vh] object-contain mx-auto rounded-lg shadow-2xl" alt="Game World">
+            
+            <!-- NFT Elements Container -->
+            <div id="nftElements" class="absolute inset-0 pointer-events-auto">
+                <!-- NFT elements will be dynamically added here -->
+            </div>
+
+            <!-- Particle Effects Container -->
+            <div id="particleContainer" class="absolute inset-0 pointer-events-none">
+                <!-- Particle effects will be dynamically added here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
+        <div class="bg-gray-800 rounded-lg p-8 max-w-md text-center fantasy-font transform transition-transform duration-300">
+            <!-- Trophy Icon (only shown for completion) -->
+            <div id="trophyIcon" class="hidden mb-6">
+                <div class="w-24 h-24 mx-auto bg-purple-600 rounded-full flex items-center justify-center">
+                    <i class="fas fa-trophy text-4xl text-yellow-400"></i>
+                </div>
+            </div>
+
+            <h2 class="text-2xl text-white mb-4">Congratulations!</h2>
+            <p id="successMessage" class="text-gray-300 mb-6"></p>
+            
+            <!-- Action Buttons -->
+            <div class="space-y-4">
+                <!-- Burn Section -->
+                <div id="burnSection" class="hidden">
+                    <button onclick="game.burnElements()" 
+                            class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
+                        <i class="fas fa-fire"></i>
+                        <span>Burn Elements</span>
+                    </button>
+                </div>
+
+                <!-- Mint Section -->
+                <div id="mintSection" class="hidden">
+                    <button onclick="game.mintElement()" 
+                            class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
+                        <i class="fas fa-gem"></i>
+                        <span>Mint NFT (0.00002 ETH)</span>
+                    </button>
+                </div>
+
+                <!-- Continue Button -->
+                <button onclick="game.closeSuccessModal()" 
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
+                    <i class="fas fa-check"></i>
+                    <span>Continue</span>
+                </button>
+            </div>
+
+            <!-- Collection Progress (shown for mint success) -->
+            <div id="collectionProgress" class="hidden mt-4 text-gray-300">
+                <p>Keep collecting magical elements to defeat the evil boss!</p>
+                <p class="text-sm mt-2" id="elementsRemaining"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+    <script type="module">
+        import { generateGameContent } from './js/config.js';
+        import walletHandler from './js/wallet.js';
+        import { animationManager } from './js/animations.js';
+        import { 
+            CONTRACT_ADDRESS, 
+            CONTRACT_ABI, 
+            CHAIN_CONFIG,
+            ERROR_MESSAGES,
+            SUCCESS_MESSAGES 
+        } from './js/contracts.js';
+
+        // Game Configuration
+        const ELEMENT_TYPES = ['star', 'chest', 'blackhole'];
+        const NFT_ANIMATIONS = ['collectEffect', 'starGlow', 'treasureChest', 'blackHole'];
+
+        // Initialize Game
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Check wallet availability
+                if (typeof window.ethereum === 'undefined' && typeof window.okxwallet === 'undefined') {
+                    game.showError('Please install MetaMask or OKX Wallet to play');
+                }
+
+                // Initialize animation manager
+                animationManager.setupFloatingPolygons();
+
+                // Extend game object with all functionality
+                Object.assign(window.game, {
+                    // Contract configuration
+                    CONTRACT_ADDRESS,
+                    CONTRACT_ABI,
+                    CHAIN_CONFIG,
+
+                    // Game state
+                    web3: null,
+                    contract: null,
+                    userAccount: null,
+                    gameContent: null,
+                    mintedElements: new Set(),
+                    pendingElement: null,
+
+                    // Import wallet methods
+                    ...walletHandler,
+
+// Animation methods
+                    animations: animationManager,
+
+                    // Content generation
+                    generateGameContent,
+
+                    // Game specific methods
+                    async updateCharacterCount(input) {
+                        const count = input.value.length;
+                        document.getElementById('charCount').textContent = `${count}/50`;
+                    },
+
+                    async startGame() {
+                        const promptInput = document.getElementById('promptInput');
+                        const prompt = promptInput.value.trim();
+                        
+                        if (!prompt) {
+                            this.showError('Please enter a story prompt');
+                            return;
+                        }
+
+                        try {
+                            this.showLoading('Creating your epic adventure...');
+                            
+                            // Start transaction
+                            await this.startNewGame(prompt);
+                            
+                            // Generate content
+                            this.gameContent = await generateGameContent(prompt);
+                            
+                            // Show story
+                            this.showStoryPart1();
+                        } catch (error) {
+                            console.error('Error starting game:', error);
+                            this.showError(error.message);
+                        } finally {
+                            this.hideLoading();
+                        }
+                    },
+
+                    setupGameElements() {
+                        const container = document.getElementById('nftElements');
+                        container.innerHTML = '';
+                        const positions = this.generateRandomPositions(10);
+                        
+                        positions.forEach((pos, index) => {
+                            const elementId = index + 1;
+                            if (!this.mintedElements.has(elementId)) {
+                                const type = ELEMENT_TYPES[Math.floor(Math.random() * ELEMENT_TYPES.length)];
+                                const element = document.createElement('div');
+                                element.className = `magical-element ${type}`;
+                                element.style.left = `${pos.x}%`;
+                                element.style.top = `${pos.y}%`;
+                                element.style.opacity = '0';
+                                
+                                // Create hover detection area
+                                const detectionArea = document.createElement('div');
+                                detectionArea.className = 'absolute w-16 h-16 -left-3 -top-3 cursor-pointer';
+                                element.appendChild(detectionArea);
+                                
+                                element.addEventListener('mouseover', () => {
+                                    element.style.opacity = '1';
+                                    document.body.style.cursor = 'pointer';
+                                });
+
+                                element.addEventListener('mouseleave', () => {
+                                    element.style.opacity = '0';
+                                    document.body.style.cursor = 'default';
+                                });
+                                
+                                element.onclick = () => this.handleElementClick(elementId, element);
+                                container.appendChild(element);
+                            }
+                        });
+                        
+                        this.updateProgress();
+                    },
+
+                    generateRandomPositions(count) {
+                        const positions = [];
+                        const margin = 10;
+                        const minDistance = 15;
+                        
+                        for (let i = 0; i < count; i++) {
+                            let validPosition = false;
+                            let attempts = 0;
+                            
+                            while (!validPosition && attempts < 100) {
+                                const pos = {
+                                    x: margin + Math.random() * (100 - 2 * margin),
+                                    y: margin + Math.random() * (100 - 2 * margin)
+                                };
+                                
+                                validPosition = positions.every(existingPos => {
+                                    const distance = Math.sqrt(
+                                        Math.pow(existingPos.x - pos.x, 2) + 
+                                        Math.pow(existingPos.y - pos.y, 2)
+                                    );
+                                    return distance >= minDistance;
+                                });
+                                
+                                if (validPosition) positions.push(pos);
+                                attempts++;
+                            }
+                        }
+                        
+                        return positions;
+                    },
+
+                    async handleElementClick(elementId, element) {
+                        if (this.mintedElements.has(elementId)) return;
+
+                        try {
+                            if (!this.userAccount || !this.contract) {
+                                this.showError('Please connect your wallet first');
+                                return;
+                            }
+
+                            this.pendingElement = { id: elementId, element: element };
+                            
+                            // Show mint confirmation
+                            const modal = document.getElementById('successModal');
+                            document.getElementById('successMessage').textContent = 
+                                "You've discovered a magical element! Would you like to collect it?";
+                            document.getElementById('mintSection').classList.remove('hidden');
+                            document.getElementById('burnSection').classList.add('hidden');
+                            document.getElementById('trophyIcon').classList.add('hidden');
+                            modal.classList.remove('hidden');
+                        } catch (error) {
+                            console.error('Element interaction error:', error);
+                            this.showError(error.message);
+                        }
+                    },
+
+                    async mintElement() {
+                        if (!this.pendingElement) return;
+                        
+                        const { id: elementId, element } = this.pendingElement;
+                        
+                        try {
+                            this.showLoading('Minting your magical element...');
+                            
+                            // Process mint transaction
+                            await this.mintNFT(elementId);
+                            
+                            // Add checkmark at mint location
+                            const checkmark = document.createElement('div');
+                            checkmark.className = 'absolute z-20';
+                            checkmark.style.left = element.style.left;
+                            checkmark.style.top = element.style.top;
+                            checkmark.innerHTML = '<i class="fas fa-check-circle text-green-500 text-3xl animate-pulse"></i>';
+                            document.getElementById('nftElements').appendChild(checkmark);
+
+                            // Update state and UI
+                            this.mintedElements.add(elementId);
+                            this.updateProgress();
+                            
+                            // Play collection animation
+                            element.style.animation = 'collectEffect 1s forwards';
+                            setTimeout(() => {
+                                element.remove();
+                                
+                                // Show progress message
+                                const remaining = 10 - this.mintedElements.size;
+                                if (remaining > 0) {
+                                    this.showSuccessModal(
+                                        `Well done, hero! Find ${remaining} more elements to defeat the evil boss!`
+                                    );
+                                    document.getElementById('elementsRemaining').textContent = 
+                                        `${remaining} magical elements remaining`;
+                                } else {
+                                    this.completeGame();
+                                }
+                            }, 1000);
+
+                        } catch (error) {
+                            console.error('Minting error:', error);
+                            this.showError(error.message);
+                        } finally {
+                            this.hideLoading();
+                            this.closeSuccessModal();
+                            this.pendingElement = null;
+                        }
+                    },
+
+                    updateProgress() {
+                        const progress = (this.mintedElements.size / 10) * 100;
+                        document.getElementById('progressBar').style.width = `${progress}%`;
+                        document.getElementById('progressText').textContent = 
+                            `${this.mintedElements.size}/10 Elements`;
+                    },
+
+                    // UI Navigation methods
+                    showStoryPart1() {
+                        this.animations.fadeOutScreen('startScreen')
+                            .then(() => this.animations.fadeInScreen('storyScreen'))
+                            .then(() => {
+                                document.getElementById('storyTitle').textContent = this.gameContent.story.title;
+                                document.getElementById('storyImage1').src = `data:image/jpeg;base64,${this.gameContent.images.scene1}`;
+                                document.getElementById('storyText1').textContent = this.gameContent.story.part1;
+                            });
+                    },
+
+                    showStoryPart2() {
+                        this.animations.fadeOutScreen('storyPart1')
+                            .then(() => this.animations.fadeInScreen('storyPart2'))
+                            .then(() => {
+                                document.getElementById('storyImage2').src = `data:image/jpeg;base64,${this.gameContent.images.scene2}`;
+                                document.getElementById('storyText2').textContent = this.gameContent.story.part2;
+                            });
+                    },
+
+                    enterGame() {
+                        this.animations.fadeOutScreen('storyScreen')
+                            .then(() => this.animations.fadeInScreen('gameScreen'))
+                            .then(() => {
+                                const gameWorldImage = document.getElementById('gameWorldImage');
+                                gameWorldImage.src = `data:image/jpeg;base64,${this.gameContent.images.gameWorld}`;
+                                this.animations.setupFloatingPolygons();
+                                this.setupGameElements();
+                            });
+                    }
+                });
+
+                console.log('Game initialized successfully');
+            } catch (error) {
+                console.error('Game initialization error:', error);
+                game.showError('Failed to initialize game');
+            }
+        });
+    </script>
+</body>
+</html>
