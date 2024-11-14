@@ -352,7 +352,7 @@ button:active {
     }
 
     button {
-        min-height: 48px; /* Larger touch target on mobile */
+        min-height: 48px; 
     }
 
     .floating-polygon {
