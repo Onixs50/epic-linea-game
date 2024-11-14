@@ -22,7 +22,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
 <!-- Custom CSS -->
-<link href="styles.css" rel="stylesheet">
+<link href="https://raw.githubusercontent.com/Onixs50/epic-linea-game/main/styles.css" rel="stylesheet">
 <!-- Responsive Styles -->
 <style>
     :root {
@@ -38,7 +38,7 @@
     #startScreen {
         height: 100vh;
         width: 100vw;
-        position: fixed; /* startScreen همچنان fixed باشه */
+        position: fixed; 
         top: 0;
         left: 0;
     }
@@ -46,15 +46,15 @@
     #storyScreen {
         min-height: 100vh;
         width: 100vw;
-        position: relative; /* تغییر به relative برای اسکرول */
-        overflow-y: auto; /* اجازه اسکرول عمودی */
+        position: relative; 
+        overflow-y: auto; 
         background: #111827;
     }
 
     #gameScreen {
         height: 100vh;
         width: 100vw;
-        position: fixed; /* gameScreen هم fixed باشه */
+        position: fixed; 
         top: 0;
         left: 0;
     }
@@ -76,7 +76,7 @@
             font-size: 2.5rem; 
         }
         
-        /* اضافه کردن padding برای story screen در موبایل */
+        
         #storyScreen {
             padding: 1rem;
         }
@@ -284,7 +284,7 @@ window.game = {
         </div>
     </div>
 
-    <!-- Tutorial Modal -->
+<!-- Tutorial Modal -->
     <div id="tutorialModal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50">
         <div class="max-w-2xl mx-auto mt-20 bg-gray-800 rounded-lg p-8">
             <div class="flex justify-between items-center mb-4">
@@ -296,14 +296,30 @@ window.game = {
                 <p>2. Find and collect 10 hidden magical elements</p>
                 <p>3. Mint each element as an NFT</p>
                 <p>4. Complete your collection to defeat evil and save the realm!</p>
+                <p>5. Remember, you cannot obtain the 10th element until you have collected the other 9 elements</p>
+                
+                <!-- Social Links -->
+                <div class="flex justify-center space-x-6 mt-6">
+                    <a href="https://twitter.com/sadeghss50" 
+                       target="_blank" 
+                       class="text-blue-400 hover:text-blue-300 transition-colors flex items-center space-x-2">
+                        <i class="fab fa-twitter text-xl"></i>
+                        <span>@sadeghss50</span>
+                    </a>
+                    <a href="https://github.com/onixs50" 
+                       target="_blank" 
+                       class="text-gray-300 hover:text-white transition-colors flex items-center space-x-2">
+                        <i class="fab fa-github text-xl"></i>
+                        <span>onixs50</span>
+                    </a>
+                </div>
             </div>
         </div>
     </div>
-
     <!-- Start Screen -->
     <div id="startScreen" class="relative min-h-screen">
         <div class="absolute inset-0 overflow-hidden">
-            <img src="val.png" alt="Background" class="w-full h-full object-cover zoom-bg">
+            <img src="https://raw.githubusercontent.com/Onixs50/epic-linea-game/main/val.png" alt="Background" class="w-full h-full object-cover zoom-bg">
         </div>
         <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
             <div class="container mx-auto px-4 text-center">
@@ -531,16 +547,16 @@ window.game = {
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
     <script type="module">
-        import { generateGameContent } from './js/config.js';
-        import walletHandler from './js/wallet.js';
-        import { animationManager } from './js/animations.js';
+        import { generateGameContent } from 'https://raw.githubusercontent.com/Onixs50/epic-linea-game/main/config.js';
+        import walletHandler from 'https://raw.githubusercontent.com/Onixs50/epic-linea-game/main/wallet.js';
+        import { animationManager } from 'https://raw.githubusercontent.com/Onixs50/epic-linea-game/main/animations.js';
         import { 
             CONTRACT_ADDRESS, 
             CONTRACT_ABI, 
             CHAIN_CONFIG,
             ERROR_MESSAGES,
             SUCCESS_MESSAGES 
-        } from './js/contracts.js';
+        } from 'https://raw.githubusercontent.com/Onixs50/epic-linea-game/main/contracts.js';
 
         // Game Configuration
         const ELEMENT_TYPES = ['star', 'chest', 'blackhole'];
