@@ -10,14 +10,18 @@
     <title>Epic NFT Story Game</title>
        <!-- Mobile Height Fix Script -->
     <script>
-        window.addEventListener('load', () => {
-            const appHeight = () => {
-                const doc = document.documentElement;
-                doc.style.setProperty('--app-height', `${window.innerHeight}px`);
-            };
-            window.addEventListener('resize', appHeight);
-            appHeight();
-        });
+  window.addEventListener('DOMContentLoaded', async () => {
+    try {
+      window.game = walletHandler;
+      await game.initialize({
+        contractAddress: CONTRACT_ADDRESS,
+        contractABI: CONTRACT_ABI
+      });
+      setupAnimations();
+    } catch (error) {
+      console.error('Initialization error:', error);
+    }
+  });
     </script>
 
     <!-- External CSS -->
@@ -553,14 +557,14 @@ window.game = {
     <script type="module">
         import { generateGameContent } from 'https://raw.githubusercontent.com/Onixs50/epic-linea-game/main/js/config.js';
         import walletHandler from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/wallet.js';
-        import { animationManager } from 'https://raw.githubusercontent.com/Onixs50/epic-linea-game/main/js/animations.js';
+        import { animationManager } from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/animations.js';
         import { 
             CONTRACT_ADDRESS, 
             CONTRACT_ABI, 
             CHAIN_CONFIG,
             ERROR_MESSAGES,
             SUCCESS_MESSAGES 
-        } from 'https://raw.githubusercontent.com/Onixs50/epic-linea-game/main/js/contracts.js';
+        } from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/contracts.js';
 
         // Game Configuration
         const ELEMENT_TYPES = ['star', 'chest', 'blackhole'];
