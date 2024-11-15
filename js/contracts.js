@@ -109,7 +109,7 @@ export const CHAIN_CONFIG = {
         symbol: 'ETH',
         decimals: 18
     },
-    rpcUrls: ['https://linea.drpc.org'],
+    rpcUrls: ['https://linea-mainnet.infura.io'],
     blockExplorerUrls: ['https://lineascan.build/']
 };
 
