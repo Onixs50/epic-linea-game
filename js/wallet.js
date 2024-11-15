@@ -74,19 +74,16 @@ const walletHandler = {
                 throw new Error('Please connect your wallet first');
             }
 
-            const requiredAmount = toWei(MINT_PRICE);
-            const gasEstimate = await estimateGas(
-                this.contract.methods.startNewGame(prompt),
-                this.userAccount,
-                requiredAmount
-            );
+            const requiredAmount = this.web3.utils.toWei('0.00002', 'ether');
+            const gasEstimate = await this.contract.methods.startNewGame(prompt)
+                .estimateGas({ from: this.userAccount, value: requiredAmount });
 
-            const transaction = await this.contract.methods.startNewGame(prompt).send({
-                from: this.userAccount,
-                value: requiredAmount,
-                gas: Math.floor(gasEstimate * 1.2),
-                gasPrice: await getGasPrice(this.web3)
-            });
+            const transaction = await this.contract.methods.startNewGame(prompt)
+                .send({
+                    from: this.userAccount,
+                    value: requiredAmount,
+                    gas: Math.floor(gasEstimate * 1.2)
+                });
 
             this.gameState.isGameActive = true;
             return transaction;
