@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
     <!-- Favicon Tags -->
     <link rel="icon" type="image/png" href="https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/icon.png">
     <link rel="shortcut icon" type="image/png" href="https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/icon.png">
@@ -14,6 +15,76 @@
     <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/styles.css" rel="stylesheet">
+
+    <!-- Mobile Height Fix Script -->
+    <script>
+        window.addEventListener('load', () => {
+            const appHeight = () => {
+                const doc = document.documentElement;
+                doc.style.setProperty('--app-height', `${window.innerHeight}px`);
+            };
+            window.addEventListener('resize', appHeight);
+            appHeight();
+        });
+    </script>
+
+    <!-- Responsive Styles -->
+    <style>
+        :root {
+            --app-height: 100%;
+        }
+        
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #startScreen {
+            height: 100vh;
+            width: 100vw;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+
+        #storyScreen {
+            min-height: 100vh;
+            width: 100vw;
+            position: relative;
+            overflow-y: auto;
+            background: #111827;
+        }
+
+        #gameScreen {
+            height: 100vh;
+            width: 100vw;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+
+        @media screen and (max-width: 768px) {
+            .game-world-wrapper { 
+                height: var(--app-height); 
+            }
+            .magical-element { 
+                width: 30px; 
+                height: 30px; 
+            }
+            .wallet-modal-content { 
+                width: 95%; 
+                max-width: 340px; 
+                padding: 1rem; 
+            }
+            .text-6xl { 
+                font-size: 2.5rem; 
+            }
+            #storyScreen {
+                padding: 1rem;
+            }
+        }
+    </style>
 
     <!-- Base Game Object -->
     <script>
@@ -53,16 +124,6 @@
                 }
             }
         };
-
-        // Mobile Height Fix
-        window.addEventListener('load', () => {
-            const appHeight = () => {
-                const doc = document.documentElement;
-                doc.style.setProperty('--app-height', `${window.innerHeight}px`);
-            };
-            window.addEventListener('resize', appHeight);
-            appHeight();
-        });
     </script>
 </head>
 <body class="bg-gray-900 min-h-screen">
@@ -84,7 +145,7 @@
     <div id="introVideo" class="fixed inset-0 bg-black z-50 hidden">
         <video class="w-full h-full object-cover" playsinline>
             <source src="https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/video.mp4" type="video/mp4">
-        </video>
+</video>
     </div>
 
     <!-- Wallet Modal -->
@@ -264,160 +325,232 @@
                             <img id="storyImage2" class="w-full h-full object-cover select-none" alt="Story Scene 2">
                         </div>
                     </div>
-<p id="storyText2" class="text-white text-xl fantasy-font leading-relaxed"></p>
+                    <p id="storyText2" class="text-white text-xl fantasy-font leading-relaxed"></p>
+                </div>
+                <button onclick="window.game.enterGame()" 
+                        class="glowing text-white text-2xl fantasy-font hover:scale-110 transition-transform mx-auto block group">
+                    <span>Enter the Challenge</span>
+                    <i class="fas fa-door-open ml-2 transform group-hover:rotate-12 transition-transform"></i>
+</button>
             </div>
-            <button onclick="window.game.enterGame()" 
-                    class="glowing text-white text-2xl fantasy-font hover:scale-110 transition-transform mx-auto block group">
-                <span>Enter the Challenge</span>
-                <i class="fas fa-door-open ml-2 transform group-hover:rotate-12 transition-transform"></i>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="gameScreen" class="hidden min-h-screen relative">
+        <!-- Animated Background -->
+        <div class="game-world-background absolute inset-0 bg-black">
+            <div id="floatingPolygons" class="absolute inset-0"></div>
+        </div>
+        
+        <!-- Boss Monster Warning -->
+        <div class="absolute top-20 left-1/2 transform -translate-x-1/2 text-center z-20">
+            <h2 class="text-3xl text-red-500 fantasy-font mb-4 glowing">Beware of the Evil Boss!</h2>
+            <p class="text-xl text-white fantasy-font">Find all 10 magical elements to defeat it!</p>
+        </div>
+
+        <!-- Game Controls -->
+        <div class="absolute top-4 left-4 space-y-2 z-10">
+            <button onclick="window.game.resetGame()" 
+                    class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 fantasy-font transform hover:scale-105 flex items-center space-x-2">
+                <i class="fas fa-undo-alt"></i>
+                <span>Reset Game</span>
+            </button>
+            <button onclick="window.game.exitGame()" 
+                    class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 fantasy-font transform hover:scale-105 flex items-center space-x-2">
+                <i class="fas fa-door-open"></i>
+                <span>Exit Game</span>
             </button>
         </div>
-    </div>
-</div>
-
-<!-- Game Screen -->
-<div id="gameScreen" class="hidden min-h-screen relative">
-    <!-- Animated Background -->
-    <div class="game-world-background absolute inset-0 bg-black">
-        <div id="floatingPolygons" class="absolute inset-0"></div>
-    </div>
-    
-    <!-- Boss Monster Warning -->
-    <div class="absolute top-20 left-1/2 transform -translate-x-1/2 text-center z-20">
-        <h2 class="text-3xl text-red-500 fantasy-font mb-4 glowing">Beware of the Evil Boss!</h2>
-        <p class="text-xl text-white fantasy-font">Find all 10 magical elements to defeat it!</p>
-    </div>
-
-    <!-- Game Controls -->
-    <div class="absolute top-4 left-4 space-y-2 z-10">
-        <button onclick="window.game.resetGame()" 
-                class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 fantasy-font transform hover:scale-105 flex items-center space-x-2">
-            <i class="fas fa-undo-alt"></i>
-            <span>Reset Game</span>
-        </button>
-        <button onclick="window.game.exitGame()" 
-                class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 fantasy-font transform hover:scale-105 flex items-center space-x-2">
-            <i class="fas fa-door-open"></i>
-            <span>Exit Game</span>
-        </button>
-    </div>
-    
-    <!-- Progress Bar -->
-    <div class="absolute top-4 right-4 bg-black bg-opacity-70 rounded-lg p-4 z-10">
-        <div class="text-white mb-2 fantasy-font flex items-center">
-            <i class="fas fa-gem mr-2"></i>
-            <span>Elements Collected</span>
-        </div>
-        <div class="w-48 h-2 bg-gray-700 rounded-full overflow-hidden">
-            <div id="progressBar" 
-                 class="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500" 
-                 style="width: 0%"></div>
-        </div>
-        <div id="progressText" class="text-white text-center mt-1 fantasy-font">0/10 Elements</div>
-    </div>
-
-    <!-- Game World -->
-    <div class="game-world-wrapper">
-        <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
-        <img id="gameWorldImage" class="game-world-image select-none max-h-[80vh] object-contain mx-auto rounded-lg shadow-2xl" alt="Game World">
         
-        <!-- NFT Elements Container -->
-        <div id="nftElements" class="absolute inset-0 pointer-events-auto">
-            <!-- NFT elements will be dynamically added here -->
+        <!-- Progress Bar -->
+        <div class="absolute top-4 right-4 bg-black bg-opacity-70 rounded-lg p-4 z-10">
+            <div class="text-white mb-2 fantasy-font flex items-center">
+                <i class="fas fa-gem mr-2"></i>
+                <span>Elements Collected</span>
+            </div>
+            <div class="w-48 h-2 bg-gray-700 rounded-full overflow-hidden">
+                <div id="progressBar" 
+                     class="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500" 
+                     style="width: 0%"></div>
+            </div>
+            <div id="progressText" class="text-white text-center mt-1 fantasy-font">0/10 Elements</div>
         </div>
 
-        <!-- Particle Effects Container -->
-        <div id="particleContainer" class="absolute inset-0 pointer-events-none">
-            <!-- Particle effects will be dynamically added here -->
-        </div>
-    </div>
-</div>
+        <!-- Game World -->
+        <div class="game-world-wrapper">
+            <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+            <img id="gameWorldImage" class="game-world-image select-none max-h-[80vh] object-contain mx-auto rounded-lg shadow-2xl" alt="Game World">
+            
+            <!-- NFT Elements Container -->
+            <div id="nftElements" class="absolute inset-0 pointer-events-auto">
+                <!-- NFT elements will be dynamically added here -->
+            </div>
 
-<!-- Success Modal -->
-<div id="successModal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
-    <div class="bg-gray-800 rounded-lg p-8 max-w-md text-center fantasy-font transform transition-transform duration-300">
-        <!-- Trophy Icon -->
-        <div id="trophyIcon" class="hidden mb-6">
-            <div class="w-24 h-24 mx-auto bg-purple-600 rounded-full flex items-center justify-center">
-                <i class="fas fa-trophy text-4xl text-yellow-400"></i>
+            <!-- Particle Effects Container -->
+            <div id="particleContainer" class="absolute inset-0 pointer-events-none">
+                <!-- Particle effects will be dynamically added here -->
             </div>
         </div>
+    </div>
 
-        <h2 class="text-2xl text-white mb-4">Congratulations!</h2>
-        <p id="successMessage" class="text-gray-300 mb-6"></p>
-        
-        <!-- Action Buttons -->
-        <div class="space-y-4">
-            <!-- Burn Section -->
-            <div id="burnSection" class="hidden">
-                <button onclick="window.game.burnElements()" 
-                        class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
-                    <i class="fas fa-fire"></i>
-                    <span>Burn Elements</span>
+    <!-- Success Modal -->
+    <div id="successModal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
+        <div class="bg-gray-800 rounded-lg p-8 max-w-md text-center fantasy-font transform transition-transform duration-300">
+            <!-- Trophy Icon -->
+            <div id="trophyIcon" class="hidden mb-6">
+                <div class="w-24 h-24 mx-auto bg-purple-600 rounded-full flex items-center justify-center">
+                    <i class="fas fa-trophy text-4xl text-yellow-400"></i>
+                </div>
+            </div>
+
+            <h2 class="text-2xl text-white mb-4">Congratulations!</h2>
+            <p id="successMessage" class="text-gray-300 mb-6"></p>
+            
+            <!-- Action Buttons -->
+            <div class="space-y-4">
+                <!-- Burn Section -->
+                <div id="burnSection" class="hidden">
+                    <button onclick="window.game.burnElements()" 
+                            class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
+                        <i class="fas fa-fire"></i>
+                        <span>Burn Elements</span>
+                    </button>
+                </div>
+
+                <!-- Mint Section -->
+                <div id="mintSection" class="hidden">
+                    <button onclick="window.game.mintElement()" 
+                            class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
+                        <i class="fas fa-gem"></i>
+                        <span>Mint NFT (0.00002 ETH)</span>
+                    </button>
+                </div>
+
+                <!-- Continue Button -->
+                <button onclick="window.game.closeSuccessModal()" 
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
+                    <i class="fas fa-check"></i>
+                    <span>Continue</span>
                 </button>
             </div>
 
-            <!-- Mint Section -->
-            <div id="mintSection" class="hidden">
-                <button onclick="window.game.mintElement()" 
-                        class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
-                    <i class="fas fa-gem"></i>
-                    <span>Mint NFT (0.00002 ETH)</span>
-                </button>
+            <!-- Collection Progress -->
+            <div id="collectionProgress" class="hidden mt-4 text-gray-300">
+                <p>Keep collecting magical elements to defeat the evil boss!</p>
+                <p class="text-sm mt-2" id="elementsRemaining"></p>
             </div>
-
-            <!-- Continue Button -->
-            <button onclick="window.game.closeSuccessModal()" 
-                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
-                <i class="fas fa-check"></i>
-                <span>Continue</span>
-            </button>
-        </div>
-
-        <!-- Collection Progress -->
-        <div id="collectionProgress" class="hidden mt-4 text-gray-300">
-            <p>Keep collecting magical elements to defeat the evil boss!</p>
-            <p class="text-sm mt-2" id="elementsRemaining"></p>
         </div>
     </div>
-</div>
 
-<!-- Scripts -->
-<script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
-<script type="module">
-    import { generateGameContent } from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/config.js';
-    import walletHandler from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/wallet.js';
-    import { animationManager } from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/animations.js';
-    import { 
-        CONTRACT_ADDRESS, 
-        CONTRACT_ABI, 
-        CHAIN_CONFIG,
-        ERROR_MESSAGES,
-        SUCCESS_MESSAGES 
-    } from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/contracts.js';
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+    <script type="module">
+        import { generateGameContent } from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/config.js';
+        import walletHandler from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/wallet.js';
+        import { animationManager } from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/animations.js';
+        import { 
+            CONTRACT_ADDRESS, 
+            CONTRACT_ABI, 
+            CHAIN_CONFIG,
+            ERROR_MESSAGES,
+            SUCCESS_MESSAGES 
+        } from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/contracts.js';
 
-    // Initialize Game
-    document.addEventListener('DOMContentLoaded', async () => {
-        try {
-            // Extend game object
-            Object.assign(window.game, {
-                ...walletHandler,
-                animations: animationManager,
-                generateGameContent,
-                CONTRACT_ADDRESS,
-                CONTRACT_ABI,
-                CHAIN_CONFIG
-            });
+        // Initialize Game
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Extend game object with all functionality
+                Object.assign(window.game, {
+                    ...walletHandler,
+                    animations: animationManager,
+                    generateGameContent,
+                    CONTRACT_ADDRESS,
+                    CONTRACT_ABI,
+                    CHAIN_CONFIG,
+                    
+                    // Game state
+                    mintedElements: new Set(),
+                    gameContent: null,
+                    pendingElement: null,
 
-            // Initialize animations
-            animationManager.setupFloatingPolygons();
+                    // Update character count method
+                    updateCharacterCount(input) {
+                        const count = input.value.length;
+                        document.getElementById('charCount').textContent = `${count}/50`;
+                    },
 
-            console.log('Game initialized successfully');
-        } catch (error) {
-            console.error('Game initialization error:', error);
-            game.showError('Failed to initialize game');
-        }
-    });
-</script>
+                    // Handle start game
+                    async startGame() {
+                        const promptInput = document.getElementById('promptInput');
+                        const prompt = promptInput.value.trim();
+                        
+                        if (!prompt) {
+                            this.showError('Please enter a story prompt');
+                            return;
+                        }
+
+                        try {
+                            this.showLoading('Creating your epic adventure...');
+                            await this.startNewGame(prompt);
+                            
+                            // Play intro video
+                            const video = document.querySelector('#introVideo video');
+                            video.muted = false;
+                            document.getElementById('introVideo').classList.remove('hidden');
+                            await video.play();
+                            
+                            // Wait for video to end
+                            await new Promise(resolve => {
+                                video.onended = resolve;
+                            });
+                            document.getElementById('introVideo').classList.add('hidden');
+                            
+                            // Generate content and continue
+                            this.gameContent = await generateGameContent(prompt);
+                            this.showStoryPart1();
+                        } catch (error) {
+                            console.error('Error starting game:', error);
+                            this.showError(error.message);
+                        } finally {
+                            this.hideLoading();
+                        }
+                    },
+
+                    // Navigation methods
+                    async showStoryPart1() {
+                        await this.animations.fadeOutScreen('startScreen');
+                        await this.animations.fadeInScreen('storyScreen');
+                        
+                        document.getElementById('storyTitle').textContent = this.gameContent.story.title;
+                        document.getElementById('storyImage1').src = `data:image/jpeg;base64,${this.gameContent.images.scene1}`;
+                        document.getElementById('storyText1').textContent = this.gameContent.story.part1;
+                    },
+
+                    async showStoryPart2() {
+                        await this.animations.fadeOutScreen('storyPart1');
+                        await this.animations.fadeInScreen('storyPart2');
+                        
+                        document.getElementById('storyImage2').src = `data:image/jpeg;base64,${this.gameContent.images.scene2}`;
+                        document.getElementById('storyText2').textContent = this.gameContent.story.part2;
+                    },
+
+                    async enterGame() {
+                        await this.animations.fadeOutScreen('storyScreen');
+                        await this.animations.fadeInScreen('gameScreen');
+                        
+                        document.getElementById('gameWorldImage').src = `data:image/jpeg;base64,${this.gameContent.images.gameWorld}`;
+                        this.animations.setupFloatingPolygons();
+                        this.setupGameElements();
+                    }
+                });
+
+                console.log('Game initialized successfully');
+            } catch (error) {
+                console.error('Game initialization error:', error);
+                game.showError('Failed to initialize game');
+            }
+        });
+    </script>
 </body>
 </html>
