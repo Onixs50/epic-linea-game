@@ -1,5 +1,5 @@
 // Contract Configuration
-export const CONTRACT_ADDRESS = '0x00714CFD3eacD644716518CCcb7e02e4fc08F058';
+export const CONTRACT_ADDRESS = '0x17039B8081b4482b9fd75dbc7fA2E503c3C9F478';
 
 // Contract ABI with all needed methods
 export const CONTRACT_ABI = [
@@ -100,17 +100,17 @@ export const CONTRACT_ABI = [
     }
 ];
 
-// Chain Configuration for Linea Sepolia
+// Chain Configuration for Linea 
 export const CHAIN_CONFIG = {
-    chainId: '0xe705',
-    chainName: 'Linea Sepolia',
+    chainId: '0xe708',
+    chainName: 'Linea',
     nativeCurrency: {
         name: 'ETH',
         symbol: 'ETH',
         decimals: 18
     },
-    rpcUrls: ['https://linea-sepolia-rpc.publicnode.com'],
-    blockExplorerUrls: ['https://sepolia.lineascan.build/']
+    rpcUrls: ['https://linea.drpc.org'],
+    blockExplorerUrls: ['https://lineascan.build/']
 };
 
 // Game Constants
