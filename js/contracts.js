@@ -148,7 +148,7 @@ export const ERROR_MESSAGES = {
     // Wallet Errors
     WALLET_NOT_FOUND: 'Wallet provider not found',
     WALLET_CONNECTION: 'Error connecting to wallet',
-    WALLET_NETWORK: 'Please switch to Linea Sepolia network',
+    WALLET_NETWORK: 'Please switch to Linea network',
     WALLET_LOCKED: 'Wallet is locked',
     
     // Transaction Errors
@@ -180,7 +180,7 @@ export const ERROR_MESSAGES = {
 // Success Messages
 export const SUCCESS_MESSAGES = {
     WALLET_CONNECTED: 'Wallet connected successfully',
-    NETWORK_SWITCHED: 'Network switched to Linea Sepolia',
+    NETWORK_SWITCHED: 'Network switched to Linea',
     GAME_STARTED: 'Game started successfully',
     MINT_SUCCESS: 'NFT minted successfully',
     BURN_SUCCESS: 'Elements burned successfully',
