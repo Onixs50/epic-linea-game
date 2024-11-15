@@ -10,7 +10,7 @@ import {
     getGasPrice,
     toWei,
     ELEMENT_NAMES
-} from './contracts.js';
+} from 'https://onixs50.github.io/epic-linea-game/js/contracts.js';
 
 const walletHandler = {
     // State variables
