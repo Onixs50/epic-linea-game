@@ -1,19 +1,4 @@
-import {
-    CONTRACT_ADDRESS,
-    CONTRACT_ABI,
-    CHAIN_CONFIG,
-    MINT_PRICE,
-    ERROR_MESSAGES,
-    SUCCESS_MESSAGES,
-    formatWalletAddress,
-    estimateGas,
-    getGasPrice,
-    toWei,
-    ELEMENT_NAMES
-} from './contracts.js';
-
 const walletHandler = {
-    // State variables
     web3: null,
     contract: null,
     userAccount: null,
@@ -27,24 +12,46 @@ const walletHandler = {
         isGameActive: false
     },
 
-    // Basic UI functions
-    showWalletModal() {
-        document.getElementById('walletModal').classList.add('active');
+    async connectWallet(type = 'metamask') {
+        try {
+            let provider;
+            if (type === 'metamask' && window.ethereum) {
+                provider = window.ethereum;
+            } else if (type === 'okx' && window.okxwallet) {
+                provider = window.okxwallet;
+            } else {
+                throw new Error(`${type} wallet is not installed`);
+            }
+
+            const accounts = await provider.request({ method: 'eth_requestAccounts' });
+            const account = accounts[0];
+
+            this.web3 = new Web3(provider);
+            this.userAccount = account;
+            this.contract = new this.web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+
+            document.getElementById('walletInfo').classList.remove('hidden');
+            document.getElementById('walletAddress').textContent = formatWalletAddress(account);
+            document.getElementById('connectWalletBtn').classList.add('hidden');
+            document.getElementById('gameStartSection').classList.remove('hidden');
+
+            return account;
+        } catch (error) {
+            console.error('Wallet connection error:', error);
+            this.showError(error.message);
+            throw error;
+        }
     },
 
-    closeWalletModal() {
-        document.getElementById('walletModal').classList.remove('active');
+    showError(message) {
+        const toast = document.getElementById('errorToast');
+        if (toast) {
+            toast.textContent = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
     },
 
-    showTutorial() {
-        document.getElementById('tutorialModal').classList.remove('hidden');
-    },
-
-    closeTutorial() {
-        document.getElementById('tutorialModal').classList.add('hidden');
-    },
-
-    // UI Utility Methods
     showLoading(message) {
         const loadingScreen = document.getElementById('loadingScreen');
         if (loadingScreen) {
@@ -61,19 +68,20 @@ const walletHandler = {
         }
     },
 
-    showError(message) {
-        const toast = document.getElementById('errorToast');
-        if (toast) {
-            toast.textContent = message;
-            toast.classList.remove('hidden');
-            setTimeout(() => toast.classList.add('hidden'), 3000);
-        }
-    },
+    async startNewGame(prompt) {
+        try {
+            if (!this.userAccount || !this.contract) {
+                throw new Error('Please connect your wallet first');
+            }
 
-    showSuccess(message) {
-        console.log('Success:', message);
-    },
-            const tx = await this.contract.methods.startNewGame(prompt).send({
+            const requiredAmount = toWei(MINT_PRICE);
+            const gasEstimate = await estimateGas(
+                this.contract.methods.startNewGame(prompt),
+                this.userAccount,
+                requiredAmount
+            );
+
+            const transaction = await this.contract.methods.startNewGame(prompt).send({
                 from: this.userAccount,
                 value: requiredAmount,
                 gas: Math.floor(gasEstimate * 1.2),
@@ -81,7 +89,7 @@ const walletHandler = {
             });
 
             this.gameState.isGameActive = true;
-            return tx;
+            return transaction;
         } catch (error) {
             console.error('Error starting game:', error);
             this.showError(error.message);
@@ -92,7 +100,6 @@ const walletHandler = {
     async handleElementFound(elementId, elementName) {
         console.log('Element found:', elementId, elementName);
         
-        // Check if this is the final element
         if (elementId === 9) {
             const mintedCount = await this.getMintedElementsCount();
             if (mintedCount < 9) {
@@ -104,7 +111,6 @@ const walletHandler = {
                         showContinue: true
                     }
                 );
-                // Still add to found elements but prevent minting
                 this.gameState.foundElements.add(elementId);
                 this.gameState.lastFoundElement = { id: elementId, name: elementName };
                 this.updateProgress();
@@ -118,7 +124,6 @@ const walletHandler = {
         return true;
     },
 
-    // Helper method to get minted elements count
     async getMintedElementsCount() {
         try {
             const mintedElements = await this.contract.methods.getMintedElements().call({ from: this.userAccount });
@@ -126,6 +131,17 @@ const walletHandler = {
         } catch (error) {
             console.error('Error getting minted elements:', error);
             return 0;
+        }
+    },
+
+    updateProgress() {
+        const progress = (this.gameState.mintedElementsCount / this.gameState.totalElements) * 100;
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        
+        if (progressBar) progressBar.style.width = `${progress}%`;
+        if (progressText) {
+            progressText.textContent = `${this.gameState.mintedElementsCount}/${this.gameState.totalElements} Elements`;
         }
     },
 
@@ -155,69 +171,72 @@ const walletHandler = {
                 'Are you sure you want to reset the game? All found elements will be lost.',
                 async () => {
                     try {
-await this.burnElements();
-                       this.gameState.foundElements.clear();
-                       this.gameState.mintedElementsCount = 0;
-                       this.gameState.lastFoundElement = null;
-                       this.mintedElements.clear();
-                       this.updateProgress();
-                       this.closeSuccessModal();
-                       return true;
-                   } catch (error) {
-                       this.showError(error.message);
-                       return false;
-                   }
-               },
-               { showBurn: true }
-           );
-       } else {
-           this.gameState = {
-               totalElements: 10,
-               foundElements: new Set(),
-               mintedElementsCount: 0,
-               lastFoundElement: null,
-               isGameActive: true
-           };
-           this.updateProgress();
-           return true;
-       }
-   },
+                        await this.burnElements();
+                        this.gameState = {
+                            totalElements: 10,
+                            foundElements: new Set(),
+                            mintedElementsCount: 0,
+                            lastFoundElement: null,
+                            isGameActive: true
+                        };
+                        this.updateProgress();
+                        this.closeSuccessModal();
+                        return true;
+                    } catch (error) {
+                        this.showError(error.message);
+                        return false;
+                    }
+                },
+                { showBurn: true }
+            );
+        } else {
+            this.gameState = {
+                totalElements: 10,
+                foundElements: new Set(),
+                mintedElementsCount: 0,
+                lastFoundElement: null,
+                isGameActive: true
+            };
+            this.updateProgress();
+            return true;
+        }
+    },
 
-   async exitGame() {
-       if (this.gameState.foundElements.size > 0 || this.gameState.mintedElementsCount > 0) {
-           this.showSuccessModal(
-               'You have uncollected elements. Would you like to burn them and exit?',
-               async () => {
-                   try {
-                       await this.burnElements();
-                       this.gameState = {
-                           totalElements: 10,
-                           foundElements: new Set(),
-                           mintedElementsCount: 0,
-                           lastFoundElement: null,
-                           isGameActive: false
-                       };
-                       this.updateProgress();
-                       this.closeSuccessModal();
-                       return true;
-                   } catch (error) {
-                       this.showError(error.message);
-                       return false;
-                   }
-               },
-               { showBurn: true }
-           );
-       } else {
-           this.gameState = {
-               totalElements: 10,
-               foundElements: new Set(),
-               mintedElementsCount: 0,
-               lastFoundElement: null,
-               isGameActive: false
-           };
-           return true;
-       }
-   }
+    async exitGame() {
+        if (this.gameState.foundElements.size > 0 || this.gameState.mintedElementsCount > 0) {
+            this.showSuccessModal(
+                'You have uncollected elements. Would you like to burn them and exit?',
+                async () => {
+                    try {
+                        await this.burnElements();
+                        this.gameState = {
+                            totalElements: 10,
+                            foundElements: new Set(),
+                            mintedElementsCount: 0,
+                            lastFoundElement: null,
+                            isGameActive: false
+                        };
+                        this.updateProgress();
+                        this.closeSuccessModal();
+                        return true;
+                    } catch (error) {
+                        this.showError(error.message);
+                        return false;
+                    }
+                },
+                { showBurn: true }
+            );
+        } else {
+            this.gameState = {
+                totalElements: 10,
+                foundElements: new Set(),
+                mintedElementsCount: 0,
+                lastFoundElement: null,
+                isGameActive: false
+            };
+            return true;
+        }
+    }
 };
 
 export default walletHandler;
