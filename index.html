@@ -551,9 +551,9 @@ window.game = {
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
     <script type="module">
-        import { generateGameContent } from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/config.js';
-        import walletHandler from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/wallet.js';
-        import { animationManager } from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/animations.js';
+import { generateGameContent } from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/config.js';
+import walletHandler from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/wallet.js';
+import { animationManager } from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/animations.js';
         import { 
             CONTRACT_ADDRESS, 
             CONTRACT_ABI, 
@@ -567,8 +567,19 @@ window.game = {
         const NFT_ANIMATIONS = ['collectEffect', 'starGlow', 'treasureChest', 'blackHole'];
 
         // Initialize Game
-        document.addEventListener('DOMContentLoaded', async () => {
-            try {
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        // Add video container to DOM
+        const videoContainer = document.createElement('div');
+        videoContainer.id = 'introVideo';
+        videoContainer.className = 'fixed inset-0 bg-black z-50 hidden';
+        videoContainer.innerHTML = `
+            <video class="w-full h-full object-cover">
+                <source src="video.mp4" type="video/mp4">
+            </video>
+        `;
+        document.body.appendChild(videoContainer);
+
                 // Check wallet availability
                 if (typeof window.ethereum === 'undefined' && typeof window.okxwallet === 'undefined') {
                     game.showError('Please install MetaMask or OKX Wallet to play');
@@ -578,7 +589,57 @@ window.game = {
                 animationManager.setupFloatingPolygons();
 
                 // Extend game object with all functionality
-                Object.assign(window.game, {
+        Object.assign(window.game, {
+            ...walletHandler,
+            animations: animationManager,
+            generateGameContent,
+
+            async startGame() {
+                const promptInput = document.getElementById('promptInput');
+                const prompt = promptInput.value.trim();
+                
+                if (!prompt) {
+                    this.showError('Please enter a story prompt');
+                    return;
+                }
+
+                try {
+                    this.showLoading('Creating your epic adventure...');
+                    await this.startNewGame(prompt);
+                                        // Play intro video
+                    const video = document.querySelector('#introVideo video');
+                    videoContainer.classList.remove('hidden');
+                    await video.play();
+                    
+                    // Wait for video to end
+                    await new Promise(resolve => {
+                        video.onended = resolve;
+                    });
+                    videoContainer.classList.add('hidden');
+                    
+                    // Generate content and continue
+                    this.gameContent = await generateGameContent(prompt);
+                    this.showStoryPart1();
+                } catch (error) {
+                    console.error('Error starting game:', error);
+                    this.showError(error.message);
+                } finally {
+                    this.hideLoading();
+                }
+            }
+        });
+
+        if (typeof window.ethereum === 'undefined' && typeof window.okxwallet === 'undefined') {
+            game.showError('Please install MetaMask or OKX Wallet to play');
+        }
+
+        console.log('Game initialized successfully');
+    } catch (error) {
+        console.error('Game initialization error:', error);
+        game.showError('Failed to initialize game');
+    }
+});
+        
                     // Contract configuration
                     CONTRACT_ADDRESS,
                     CONTRACT_ABI,
