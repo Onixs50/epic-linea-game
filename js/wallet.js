@@ -10,7 +10,7 @@ import {
     getGasPrice,
     toWei,
     ELEMENT_NAMES
-} from 'https://onixs50.github.io/epic-linea-game/js/contracts.js';
+} from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/contracts.js';
 
 const walletHandler = {
     // State variables
@@ -27,21 +27,79 @@ const walletHandler = {
         isGameActive: false
     },
 
+    // Initialize wallet and connect
+    async initialize() {
+        try {
+            if (typeof window.ethereum === 'undefined') {
+                throw new Error('MetaMask is not installed!');
+            }
+
+            this.web3 = new Web3(window.ethereum);
+            const accounts = await window.ethereum.request({ 
+                method: 'eth_requestAccounts' 
+            });
+            
+            this.userAccount = accounts[0];
+            this.contract = new this.web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+            
+            // Setup MetaMask event listeners
+            window.ethereum.on('accountsChanged', (accounts) => {
+                this.userAccount = accounts[0];
+                this.updateUI();
+            });
+
+            window.ethereum.on('chainChanged', () => {
+                window.location.reload();
+            });
+
+            this.updateUI();
+            return true;
+        } catch (error) {
+            console.error('Initialization error:', error);
+            this.showError(error.message);
+            return false;
+        }
+    },
+
+    // Connect wallet method
+    async connectWallet() {
+        try {
+            if (typeof window.ethereum === 'undefined') {
+                throw new Error('MetaMask is not installed!');
+            }
+
+            const accounts = await window.ethereum.request({ 
+                method: 'eth_requestAccounts' 
+            });
+            
+            this.userAccount = accounts[0];
+            this.web3 = new Web3(window.ethereum);
+            this.contract = new this.web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+            
+            this.updateUI();
+            return true;
+        } catch (error) {
+            console.error('Connection error:', error);
+            this.showError(error.message);
+            return false;
+        }
+    },
+
     // Basic UI functions
     showWalletModal() {
-        document.getElementById('walletModal').classList.add('active');
+        document.getElementById('walletModal')?.classList.add('active');
     },
 
     closeWalletModal() {
-        document.getElementById('walletModal').classList.remove('active');
+        document.getElementById('walletModal')?.classList.remove('active');
     },
 
     showTutorial() {
-        document.getElementById('tutorialModal').classList.remove('hidden');
+        document.getElementById('tutorialModal')?.classList.remove('hidden');
     },
 
     closeTutorial() {
-        document.getElementById('tutorialModal').classList.add('hidden');
+        document.getElementById('tutorialModal')?.classList.add('hidden');
     },
 
     // UI Utility Methods
@@ -99,7 +157,9 @@ const walletHandler = {
             }
         }
 
-        // Enhanced button callbacks with proper async handling
+        modal.classList.remove('hidden');
+
+        // Setup button callbacks
         if (options.showBurn && burnSection) {
             const burnButton = burnSection.querySelector('button');
             if (burnButton) {
@@ -107,6 +167,7 @@ const walletHandler = {
                     try {
                         await this.burnElements();
                         if (callback) await callback();
+                        this.closeSuccessModal();
                     } catch (error) {
                         this.showError(error.message);
                     }
@@ -119,7 +180,7 @@ const walletHandler = {
             if (mintButton) {
                 mintButton.onclick = async () => {
                     try {
-                        await callback();
+                        if (callback) await callback();
                         this.closeSuccessModal();
                     } catch (error) {
                         this.showError(error.message);
@@ -137,8 +198,6 @@ const walletHandler = {
                 }
             };
         }
-
-        modal.classList.remove('hidden');
     },
 
     closeSuccessModal() {
@@ -148,235 +207,21 @@ const walletHandler = {
         }
     },
 
-    updateProgress() {
-        const progressBar = document.getElementById('progressBar');
-        const progressText = document.getElementById('progressText');
-        
-        if (progressBar && progressText) {
-            const progress = (this.gameState.mintedElementsCount / 10) * 100;
-            progressBar.style.width = `${progress}%`;
-            progressText.textContent = `${this.gameState.mintedElementsCount}/10 Elements`;
-        }
-    },
-
-    // Wallet Connection Methods
-    async connectWallet(type) {
-        try {
-            this.showLoading('Connecting wallet...');
-            const provider = type === 'metamask' ? window.ethereum : window.okxwallet;
-            
-            if (!provider) {
-                throw new Error(`${type === 'metamask' ? 'MetaMask' : 'OKX Wallet'} not found`);
-            }
-
-            await this.switchNetwork(provider);
-            const accounts = await provider.request({ method: 'eth_requestAccounts' });
-            await this.initializeWallet(accounts[0], provider);
-            this.closeWalletModal();
-            this.showSuccess(SUCCESS_MESSAGES.WALLET_CONNECTED);
-            await this.checkExistingNFTs();
-        } catch (error) {
-            console.error('Wallet connection error:', error);
-            this.showError(error.message);
-        } finally {
-            this.hideLoading();
-        }
-    },
-
-    async switchNetwork(provider) {
-        try {
-            await provider.request({
-                method: 'wallet_switchEthereumChain',
-                params: [{ chainId: CHAIN_CONFIG.chainId }],
-            });
-        } catch (switchError) {
-            if (switchError.code === 4902) {
-                await provider.request({
-                    method: 'wallet_addEthereumChain',
-                    params: [CHAIN_CONFIG],
-                });
-            } else {
-                throw switchError;
-            }
-        }
-    },
-
-    async initializeWallet(account, provider) {
-        this.web3 = new Web3(provider);
-        this.userAccount = account;
-        this.contract = new this.web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
-
-        document.getElementById('walletSection').classList.add('hidden');
-        document.getElementById('walletInfo').classList.remove('hidden');
-        document.getElementById('walletAddress').textContent = formatWalletAddress(account);
-
-        provider.on('accountsChanged', (accounts) => {
-            if (accounts.length === 0) {
-                this.disconnectWallet();
-            } else {
-                this.initializeWallet(accounts[0], provider);
-            }
-        });
-
-        provider.on('chainChanged', () => {
-            window.location.reload();
-        });
-
-        this.gameState.isGameActive = true;
-        this.updateProgress();
-    },
-
-    async checkExistingNFTs() {
-        try {
-            if (!this.contract || !this.userAccount) {
-                console.log('No wallet connected');
-                return;
-            }
-
-            const [gameInfo, mintedElements] = await Promise.all([
-                this.contract.methods.getCurrentGameInfo().call({ from: this.userAccount }),
-                this.contract.methods.getMintedElements().call({ from: this.userAccount })
-            ]);
-
-            const mintedCount = parseInt(gameInfo.mintedCount);
-            
-            if (mintedCount > 0) {
-                const elementCount = mintedElements.filter(Boolean).length;
-                this.showSuccessModal(
-                    `You have ${elementCount} elements from a previous game. You need to burn them before starting a new game.`,
-                    null,
-                    { 
-                        showBurn: true,
-                        showProgress: true 
-                    }
-                );
-            } else {
-                document.getElementById('gameStartSection').classList.remove('hidden');
-            }
-        } catch (error) {
-            console.error('Error checking NFTs:', error);
-            this.showError('Failed to check existing NFTs: ' + error.message);
-            document.getElementById('gameStartSection').classList.remove('hidden');
-        }
-    },
-
-    async burnElements() {
-        try {
-            if (!this.contract || !this.userAccount) {
-                throw new Error(ERROR_MESSAGES.WALLET_CONNECTION);
-            }
-
-            this.showLoading('Preparing to burn elements...');
-
-            const gasEstimate = await estimateGas(
-                this.contract,
-                this.contract.methods.burnElements(),
-                { from: this.userAccount }
-            );
-
-            const tx = await this.contract.methods.burnElements().send({
-                from: this.userAccount,
-                gas: Math.floor(gasEstimate * 1.2),
-                gasPrice: await getGasPrice(this.web3)
-            });
-
-            this.mintedElements.clear();
-            this.gameState.mintedElementsCount = 0;
-            this.gameState.foundElements.clear();
-            
-            this.showSuccess(SUCCESS_MESSAGES.BURN_SUCCESS);
-            document.getElementById('gameStartSection').classList.remove('hidden');
-            this.closeSuccessModal();
-            return tx;
-        } catch (error) {
-            console.error('Error burning elements:', error);
-            if (error.code === 4001) {
-                throw new Error(ERROR_MESSAGES.USER_REJECTED);
-            }
-            throw new Error(error.message || ERROR_MESSAGES.CONTRACT_INTERACTION);
-        } finally {
-            this.hideLoading();
-        }
-    },
-
-    async mintNFT(elementId) {
-        try {
-            const requiredAmount = toWei(MINT_PRICE);
-            const balance = await this.web3.eth.getBalance(this.userAccount);
-            
-            if (this.web3.utils.toBN(balance).lt(this.web3.utils.toBN(requiredAmount))) {
-                throw new Error(ERROR_MESSAGES.INSUFFICIENT_FUNDS);
-            }
-
-            const gasEstimate = await estimateGas(
-                this.contract,
-                this.contract.methods.mintElement(elementId),
-                { from: this.userAccount, value: requiredAmount }
-            );
-
-            const tx = await this.contract.methods.mintElement(elementId).send({
-                from: this.userAccount,
-                value: requiredAmount,
-                gas: Math.floor(gasEstimate * 1.2),
-                gasPrice: await getGasPrice(this.web3)
-            });
-
-            this.mintedElements.add(elementId);
-            this.gameState.mintedElementsCount++;
-            this.updateProgress();
-
-            // Check if this completes the collection
-            if (this.gameState.mintedElementsCount === 10) {
-                this.showSuccessModal(
-                    'Congratulations! You have collected all elements and defeated the evil boss!',
-                    null,
-                    { showContinue: true }
-                );
-            }
-
-            return tx;
-        } catch (error) {
-            console.error('Minting error:', error);
-            this.showError(error.message);
-            throw error;
-        }
-    },
-
-    async startNewGame(prompt) {
-        try {
-            const requiredAmount = toWei(MINT_PRICE);
-            const balance = await this.web3.eth.getBalance(this.userAccount);
-            
-            if (this.web3.utils.toBN(balance).lt(this.web3.utils.toBN(requiredAmount))) {
-                throw new Error(ERROR_MESSAGES.INSUFFICIENT_FUNDS);
-            }
-
-            const gasEstimate = await estimateGas(
-                this.contract,
-                this.contract.methods.startNewGame(prompt),
-                { from: this.userAccount, value: requiredAmount }
-            );
-
-            const tx = await this.contract.methods.startNewGame(prompt).send({
-                from: this.userAccount,
-                value: requiredAmount,
-                gas: Math.floor(gasEstimate * 1.2),
-                gasPrice: await getGasPrice(this.web3)
-            });
-
-            this.gameState.isGameActive = true;
-            return tx;
-        } catch (error) {
-            console.error('Error starting game:', error);
-            this.showError(error.message);
-            throw error;
+    updateUI() {
+        if (this.userAccount) {
+            const displayAddress = `${this.userAccount.slice(0, 6)}...${this.userAccount.slice(-4)}`;
+            document.getElementById('walletInfo')?.classList.remove('hidden');
+            document.getElementById('walletAddress').textContent = displayAddress;
+            document.getElementById('connectWallet')?.classList.add('hidden');
+        } else {
+            document.getElementById('walletInfo')?.classList.add('hidden');
+            document.getElementById('connectWallet')?.classList.remove('hidden');
         }
     },
 
     async handleElementFound(elementId, elementName) {
         console.log('Element found:', elementId, elementName);
         
-        // Check if this is the final element
         if (elementId === 9) {
             const mintedCount = await this.getMintedElementsCount();
             if (mintedCount < 9) {
@@ -388,7 +233,6 @@ const walletHandler = {
                         showContinue: true
                     }
                 );
-                // Still add to found elements but prevent minting
                 this.gameState.foundElements.add(elementId);
                 this.gameState.lastFoundElement = { id: elementId, name: elementName };
                 this.updateProgress();
@@ -402,14 +246,50 @@ const walletHandler = {
         return true;
     },
 
-    // Helper method to get minted elements count
     async getMintedElementsCount() {
         try {
+            if (!this.contract || !this.userAccount) return 0;
             const mintedElements = await this.contract.methods.getMintedElements().call({ from: this.userAccount });
             return mintedElements.filter(Boolean).length;
         } catch (error) {
             console.error('Error getting minted elements:', error);
             return 0;
+        }
+    },
+
+    async burnElements() {
+        try {
+            if (!this.userAccount || !this.contract) {
+                throw new Error('Wallet not connected');
+            }
+
+            const gasEstimate = await this.contract.methods.burnElements().estimateGas({
+                from: this.userAccount
+            });
+
+            const burnTx = await this.contract.methods.burnElements().send({
+                from: this.userAccount,
+                gas: Math.floor(gasEstimate * 1.2)
+            });
+
+            this.mintedElements.clear();
+            this.gameState.mintedElementsCount = 0;
+            
+            return burnTx;
+        } catch (error) {
+            console.error('Burn error:', error);
+            throw error;
+        }
+    },
+
+    updateProgress() {
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        
+        if (progressBar && progressText) {
+            const progress = (this.gameState.mintedElementsCount / 10) * 100;
+            progressBar.style.width = `${progress}%`;
+            progressText.textContent = `${this.gameState.mintedElementsCount}/10 Elements`;
         }
     },
 
@@ -426,11 +306,7 @@ const walletHandler = {
             isGameActive: false
         };
         
-        document.getElementById('walletInfo').classList.add('hidden');
-        document.getElementById('walletSection').classList.remove('hidden');
-        document.getElementById('gameStartSection').classList.add('hidden');
-        
-        this.updateProgress();
+        this.updateUI();
     },
 
     async resetGame() {
@@ -439,69 +315,69 @@ const walletHandler = {
                 'Are you sure you want to reset the game? All found elements will be lost.',
                 async () => {
                     try {
-await this.burnElements();
-                       this.gameState.foundElements.clear();
-                       this.gameState.mintedElementsCount = 0;
-                       this.gameState.lastFoundElement = null;
-                       this.mintedElements.clear();
-                       this.updateProgress();
-                       this.closeSuccessModal();
-                       return true;
-                   } catch (error) {
-                       this.showError(error.message);
-                       return false;
-                   }
-               },
-               { showBurn: true }
-           );
-       } else {
-           this.gameState = {
-               totalElements: 10,
-               foundElements: new Set(),
-               mintedElementsCount: 0,
-               lastFoundElement: null,
-               isGameActive: true
-           };
-           this.updateProgress();
-           return true;
-       }
-   },
+                        await this.burnElements();
+                        this.gameState.foundElements.clear();
+                        this.gameState.mintedElementsCount = 0;
+                        this.gameState.lastFoundElement = null;
+                        this.mintedElements.clear();
+                        this.updateProgress();
+                        this.closeSuccessModal();
+                        return true;
+                    } catch (error) {
+                        this.showError(error.message);
+                        return false;
+                    }
+                },
+                { showBurn: true }
+            );
+        } else {
+            this.gameState = {
+                totalElements: 10,
+                foundElements: new Set(),
+                mintedElementsCount: 0,
+                lastFoundElement: null,
+                isGameActive: true
+            };
+            this.updateProgress();
+            return true;
+        }
+    },
 
-   async exitGame() {
-       if (this.gameState.foundElements.size > 0 || this.gameState.mintedElementsCount > 0) {
-           this.showSuccessModal(
-               'You have uncollected elements. Would you like to burn them and exit?',
-               async () => {
-                   try {
-                       await this.burnElements();
-                       this.gameState = {
-                           totalElements: 10,
-                           foundElements: new Set(),
-                           mintedElementsCount: 0,
-                           lastFoundElement: null,
-                           isGameActive: false
-                       };
-                       this.updateProgress();
-                       this.closeSuccessModal();
-                       return true;
-                   } catch (error) {
-                       this.showError(error.message);
-                       return false;
-                   }
-               },
-               { showBurn: true }
-           );
-       } else {
-           this.gameState = {
-               totalElements: 10,
-               foundElements: new Set(),
-               mintedElementsCount: 0,
-               lastFoundElement: null,
-               isGameActive: false
-           };
-           return true;
-       }
-   }
+    async exitGame() {
+        if (this.gameState.foundElements.size > 0 || this.gameState.mintedElementsCount > 0) {
+            this.showSuccessModal(
+                'You have uncollected elements. Would you like to burn them and exit?',
+                async () => {
+                    try {
+                        await this.burnElements();
+                        this.gameState = {
+                            totalElements: 10,
+                            foundElements: new Set(),
+                            mintedElementsCount: 0,
+                            lastFoundElement: null,
+                            isGameActive: false
+                        };
+                        this.updateProgress();
+                        this.closeSuccessModal();
+                        return true;
+                    } catch (error) {
+                        this.showError(error.message);
+                        return false;
+                    }
+                },
+                { showBurn: true }
+            );
+        } else {
+            this.gameState = {
+                totalElements: 10,
+                foundElements: new Set(),
+                mintedElementsCount: 0,
+                lastFoundElement: null,
+                isGameActive: false
+            };
+            return true;
+        }
+    }
 };
 
 export default walletHandler;
