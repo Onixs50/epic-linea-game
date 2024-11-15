@@ -122,6 +122,10 @@
                 if (loadingScreen) {
                     loadingScreen.classList.add('hidden');
                 }
+            },
+            updateCharacterCount(input) {
+                const count = input.value.length;
+                document.getElementById('charCount').textContent = `${count}/50`;
             }
         };
     </script>
@@ -145,7 +149,7 @@
     <div id="introVideo" class="fixed inset-0 bg-black z-50 hidden">
         <video class="w-full h-full object-cover" playsinline>
             <source src="https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/video.mp4" type="video/mp4">
-</video>
+        </video>
     </div>
 
     <!-- Wallet Modal -->
@@ -210,7 +214,7 @@
                        class="text-gray-300 hover:text-white transition-colors flex items-center space-x-2">
                         <i class="fab fa-github text-xl"></i>
                         <span>onixs50</span>
-                    </a>
+</a>
                 </div>
             </div>
         </div>
@@ -331,7 +335,7 @@
                         class="glowing text-white text-2xl fantasy-font hover:scale-110 transition-transform mx-auto block group">
                     <span>Enter the Challenge</span>
                     <i class="fas fa-door-open ml-2 transform group-hover:rotate-12 transition-transform"></i>
-</button>
+                </button>
             </div>
         </div>
     </div>
@@ -452,9 +456,7 @@
         import { 
             CONTRACT_ADDRESS, 
             CONTRACT_ABI, 
-            CHAIN_CONFIG,
-            ERROR_MESSAGES,
-            SUCCESS_MESSAGES 
+            CHAIN_CONFIG
         } from 'https://cdn.jsdelivr.net/gh/Onixs50/epic-linea-game@main/js/contracts.js';
 
         // Initialize Game
@@ -462,25 +464,28 @@
             try {
                 // Extend game object with all functionality
                 Object.assign(window.game, {
-                    ...walletHandler,
-                    animations: animationManager,
-                    generateGameContent,
+                    // Contract config
                     CONTRACT_ADDRESS,
                     CONTRACT_ABI,
                     CHAIN_CONFIG,
-                    
+
+                    // Wallet handler methods
+                    ...walletHandler,
+                    connectWallet: walletHandler.connectWallet.bind(walletHandler),
+                    disconnectWallet: walletHandler.disconnectWallet.bind(walletHandler),
+
+                    // Animation methods
+                    animations: animationManager,
+
+                    // Game content generator
+                    generateGameContent,
+
                     // Game state
                     mintedElements: new Set(),
                     gameContent: null,
                     pendingElement: null,
 
-                    // Update character count method
-                    updateCharacterCount(input) {
-                        const count = input.value.length;
-                        document.getElementById('charCount').textContent = `${count}/50`;
-                    },
-
-                    // Handle start game
+                    // Handle game start
                     async startGame() {
                         const promptInput = document.getElementById('promptInput');
                         const prompt = promptInput.value.trim();
@@ -495,16 +500,17 @@
                             await this.startNewGame(prompt);
                             
                             // Play intro video
-                            const video = document.querySelector('#introVideo video');
+                            const videoContainer = document.getElementById('introVideo');
+                            const video = videoContainer.querySelector('video');
                             video.muted = false;
-                            document.getElementById('introVideo').classList.remove('hidden');
+videoContainer.classList.remove('hidden');
                             await video.play();
                             
                             // Wait for video to end
                             await new Promise(resolve => {
                                 video.onended = resolve;
                             });
-                            document.getElementById('introVideo').classList.add('hidden');
+                            videoContainer.classList.add('hidden');
                             
                             // Generate content and continue
                             this.gameContent = await generateGameContent(prompt);
@@ -517,7 +523,7 @@
                         }
                     },
 
-                    // Navigation methods
+                    // UI Navigation methods
                     async showStoryPart1() {
                         await this.animations.fadeOutScreen('startScreen');
                         await this.animations.fadeInScreen('storyScreen');
@@ -545,10 +551,18 @@
                     }
                 });
 
+                // Initialize animations
+                animationManager.setupFloatingPolygons();
+
+                // Check wallet availability
+                if (typeof window.ethereum === 'undefined' && typeof window.okxwallet === 'undefined') {
+                    window.game.showError('Please install MetaMask or OKX Wallet to play');
+                }
+
                 console.log('Game initialized successfully');
             } catch (error) {
                 console.error('Game initialization error:', error);
-                game.showError('Failed to initialize game');
+                window.game.showError('Failed to initialize game');
             }
         });
     </script>
