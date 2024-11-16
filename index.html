@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <!-- Favicon Tags -->
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Onixs50/epic-linea-game/main/icon.png">
+    <link rel="shortcut icon" type="image/png" href="https://raw.githubusercontent.com/Onixs50/epic-linea-game/main/icon.png">
+    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/Onixs50/epic-linea-game/main/icon.png">
+    <title>Epic NFT Story Game</title>
+
+    <!-- External CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --app-height: 100%;
+        }
+        
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #videoOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: black;
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #gameVideo {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        #startScreen {
+            height: 100vh;
+            width: 100vw;
+            position: fixed;
+            top: 0;
+            left: 0;
+            display: none; /* Initially hidden until video ends */
+        }
+
+        #storyScreen {
+            min-height: 100vh;
+            width: 100vw;
+            position: relative;
+            overflow-y: auto;
+            background: #111827;
+            display: none;
+        }
+
+        #gameScreen {
+            height: 100vh;
+            width: 100vw;
+            position: fixed;
+            top: 0;
+            left: 0;
+            display: none;
+        }
+
+        .game-world-wrapper {
+            height: var(--app-height);
+        }
+
+        .magical-element {
+            width: 40px;
+            height: 40px;
+            position: absolute;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+
+        @media screen and (max-width: 768px) {
+            .game-world-wrapper { 
+                height: var(--app-height); 
+            }
+            .magical-element { 
+                width: 30px; 
+                height: 30px; 
+            }
+            .wallet-modal-content { 
+                width: 95%; 
+            }
+        }
+
+        @keyframes collectEffect {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(0);
+                opacity: 0;
+            }
+        }
+
+        .floating {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+    </style>
+
+    <!-- Mobile Height Fix Script -->
+    <script>
+        window.addEventListener('load', () => {
+            const appHeight = () => {
+                const doc = document.documentElement;
+                doc.style.setProperty('--app-height', `${window.innerHeight}px`);
+            };
+            window.addEventListener('resize', appHeight);
+appHeight();
+
+        // Check if this is a fresh visit or just a refresh
+        const isFirstVisit = !sessionStorage.getItem('hasVisitedBefore');
+        
+        // Video handling function
+        function handleVideoStart() {
+            if (isFirstVisit) {
+                const videoOverlay = document.createElement('div');
+                videoOverlay.id = 'videoOverlay';
+                videoOverlay.innerHTML = `
+                    <video id="gameVideo" playsinline>
+                        <source src="video.mp4" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                `;
+                document.body.appendChild(videoOverlay);
+
+                const video = document.getElementById('gameVideo');
+                video.play();
+
+                // When video ends
+                video.addEventListener('ended', () => {
+                    videoOverlay.style.opacity = '0';
+                    videoOverlay.style.transition = 'opacity 1s';
+                    setTimeout(() => {
+                        videoOverlay.remove();
+                        document.getElementById('startScreen').style.display = 'block';
+                    }, 1000);
+                    
+                    // Mark that user has seen the video
+                    sessionStorage.setItem('hasVisitedBefore', 'true');
+                });
+            } else {
+                // If not first visit, show start screen directly
+                document.getElementById('startScreen').style.display = 'block';
+            }
+        }
+
+        // Initialize game when document is ready
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                // Start video or game based on visit status
+                handleVideoStart();
+
+                const game = new Vue({
+                    el: '#app',
+                    data: {
+                        gameContent: null,
+                        userAccount: null,
+                        contract: null,
+                        provider: null,
+                        signer: null,
+                        mintedElements: new Set(),
+                        pendingElement: null,
+                        loading: false,
+                        loadingMessage: '',
+                        errorMessage: '',
+
+                        animations: {
+                            fadeOutScreen(screenId) {
+                                return new Promise(resolve => {
+                                    const screen = document.getElementById(screenId);
+                                    screen.style.opacity = '0';
+                                    screen.style.transition = 'opacity 1s';
+                                    setTimeout(() => {
+                                        screen.style.display = 'none';
+                                        resolve();
+                                    }, 1000);
+                                });
+                            },
+
+                            fadeInScreen(screenId) {
+                                return new Promise(resolve => {
+                                    const screen = document.getElementById(screenId);
+                                    screen.style.display = 'block';
+                                    setTimeout(() => {
+                                        screen.style.opacity = '1';
+                                        screen.style.transition = 'opacity 1s';
+                                        resolve();
+                                    }, 50);
+                                });
+                            },
+
+                            setupFloatingPolygons() {
+                                const container = document.getElementById('polygonContainer');
+                                const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD'];
+                                
+                                for (let i = 0; i < 20; i++) {
+                                    const polygon = document.createElement('div');
+                                    polygon.className = 'floating magical-element';
+                                    polygon.style.left = `${Math.random() * 90}%`;
+                                    polygon.style.top = `${Math.random() * 90}%`;
+                                    polygon.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                                    polygon.style.clipPath = 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)';
+                                    polygon.style.animation = `float ${3 + Math.random() * 2}s ease-in-out infinite`;
+                                    polygon.style.animationDelay = `${Math.random() * 2}s`;
+                                    container.appendChild(polygon);
+                                }
+                            }
+                        },
+
+                        // Contract interaction methods
+                        async connectWallet() {
+                            try {
+                                if (typeof window.ethereum === 'undefined') {
+                                    throw new Error('Please install MetaMask to play this game');
+                                }
+
+                                this.showLoading('Connecting wallet...');
+                                
+                                // Request account access
+                                const accounts = await window.ethereum.request({
+                                    method: 'eth_requestAccounts'
+                                });
+                                
+                                this.userAccount = accounts[0];
+                                
+                                // Setup ethers provider and signer
+                                this.provider = new ethers.providers.Web3Provider(window.ethereum);
+                                this.signer = this.provider.getSigner();
+                                
+                                // Initialize contract
+                                const contractAddress = '0x123...'; // Your contract address
+                                const contractABI = [...]; // Your contract ABI
+                                this.contract = new ethers.Contract(
+                                    contractAddress,
+                                    contractABI,
+                                    this.signer
+                                );
+
+                                this.hideLoading();
+                                this.showSuccessModal('Wallet connected successfully!');
+                            } catch (error) {
+                                console.error('Wallet connection error:', error);
+                                this.showError(error.message);
+                                this.hideLoading();
+                            }
+                        },
+
+                        async mintNFT(elementId) {
+                            if (!this.contract) throw new Error('Contract not initialized');
+                            
+                            const tx = await this.contract.mint(elementId);
+                            await tx.wait();
+                            
+                            return tx;
+                        },
+
+                        // Game setup and element positioning
+                        setupGameElements() {
+                            const positions = this.calculateElementPositions();
+                            const container = document.getElementById('nftElements');
+                            
+                            positions.forEach((pos, index) => {
+                                const element = document.createElement('div');
+                                element.className = 'magical-element';
+                                element.style.left = `${pos.x}%`;
+                                element.style.top = `${pos.y}%`;
+                                element.style.backgroundColor = this.getRandomColor();
+                                element.style.clipPath = this.getRandomShape();
+                                element.onclick = () => this.handleElementClick(index, element);
+                                container.appendChild(element);
+                            });
+                        },
+
+                        calculateElementPositions() {
+                            const positions = [];
+                            const margin = 10; // Minimum distance from edges
+                            const minDistance = 15; // Minimum distance between elements
+                            
+for (let i = 0; i < 10; i++) {
+                            let validPosition = false;
+                            let attempts = 0;
+                            
+                            while (!validPosition && attempts < 100) {
+                                const pos = {
+                                    x: margin + Math.random() * (100 - 2 * margin),
+                                    y: margin + Math.random() * (100 - 2 * margin)
+                                };
+                                
+                                validPosition = positions.every(existingPos => {
+                                    const distance = Math.sqrt(
+                                        Math.pow(existingPos.x - pos.x, 2) + 
+                                        Math.pow(existingPos.y - pos.y, 2)
+                                    );
+                                    return distance >= minDistance;
+                                });
+                                
+                                if (validPosition) positions.push(pos);
+                                attempts++;
+                            }
+                        }
+                        
+                        return positions;
+                    },
+
+                    getRandomColor() {
+                        const colors = [
+                            '#FF6B6B', '#4ECDC4', '#45B7D1', 
+                            '#96CEB4', '#FFEEAD', '#FFD93D', 
+                            '#FF8B94', '#A8E6CF'
+                        ];
+                        return colors[Math.floor(Math.random() * colors.length)];
+                    },
+
+                    getRandomShape() {
+                        const shapes = [
+                            'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)',
+                            'polygon(25% 0%, 100% 0%, 75% 100%, 0% 100%)',
+                            'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
+                            'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)'
+                        ];
+                        return shapes[Math.floor(Math.random() * shapes.length)];
+                    },
+
+                    async handleElementClick(elementId, element) {
+                        if (this.mintedElements.has(elementId)) return;
+
+                        try {
+                            if (!this.userAccount || !this.contract) {
+                                this.showError('Please connect your wallet first');
+                                return;
+                            }
+
+                            this.pendingElement = { id: elementId, element: element };
+                            
+                            // Show mint confirmation
+                            const modal = document.getElementById('successModal');
+                            document.getElementById('successMessage').textContent = 
+                                "You've discovered a magical element! Would you like to collect it?";
+                            document.getElementById('mintSection').classList.remove('hidden');
+                            document.getElementById('burnSection').classList.add('hidden');
+                            document.getElementById('trophyIcon').classList.add('hidden');
+                            modal.classList.remove('hidden');
+                        } catch (error) {
+                            console.error('Element interaction error:', error);
+                            this.showError(error.message);
+                        }
+                    },
+
+                    async mintElement() {
+                        if (!this.pendingElement) return;
+                        
+                        const { id: elementId, element } = this.pendingElement;
+                        
+                        try {
+                            this.showLoading('Minting your magical element...');
+                            
+                            // Process mint transaction
+                            await this.mintNFT(elementId);
+                            
+                            // Add checkmark at mint location
+                            const checkmark = document.createElement('div');
+                            checkmark.className = 'absolute z-20';
+                            checkmark.style.left = element.style.left;
+                            checkmark.style.top = element.style.top;
+                            checkmark.innerHTML = '<i class="fas fa-check-circle text-green-500 text-3xl animate-pulse"></i>';
+                            document.getElementById('nftElements').appendChild(checkmark);
+
+                            // Update state and UI
+                            this.mintedElements.add(elementId);
+                            this.updateProgress();
+                            
+                            // Play collection animation
+                            element.style.animation = 'collectEffect 1s forwards';
+                            setTimeout(() => {
+                                element.remove();
+                                
+                                // Show progress message
+                                const remaining = 10 - this.mintedElements.size;
+                                if (remaining > 0) {
+                                    this.showSuccessModal(
+                                        `Well done, hero! Find ${remaining} more elements to defeat the evil boss!`
+                                    );
+                                    document.getElementById('elementsRemaining').textContent = 
+                                        `${remaining} magical elements remaining`;
+                                } else {
+                                    this.completeGame();
+                                }
+                            }, 1000);
+
+                        } catch (error) {
+                            console.error('Minting error:', error);
+                            this.showError(error.message);
+                        } finally {
+                            this.hideLoading();
+                            this.closeSuccessModal();
+                            this.pendingElement = null;
+                        }
+                    },
+
+                    updateProgress() {
+                        const progress = (this.mintedElements.size / 10) * 100;
+                        document.getElementById('progressBar').style.width = `${progress}%`;
+                        document.getElementById('progressText').textContent = 
+                            `${this.mintedElements.size}/10 Elements`;
+                    },
+
+                    completeGame() {
+                        this.showSuccessModal(
+                            'Congratulations! You have collected all magical elements!',
+                            true
+                        );
+                        document.getElementById('elementsRemaining').textContent = 
+                            'All magical elements collected!';
+                    },
+
+                    // Modal and UI utility methods
+                    showLoading(message) {
+                        this.loading = true;
+                        this.loadingMessage = message;
+                        document.getElementById('loadingModal').classList.remove('hidden');
+                    },
+
+                    hideLoading() {
+                        this.loading = false;
+                        this.loadingMessage = '';
+                        document.getElementById('loadingModal').classList.add('hidden');
+                    },
+
+                    showError(message) {
+                        this.errorMessage = message;
+                        document.getElementById('errorModal').classList.remove('hidden');
+                    },
+
+                    hideError() {
+                        this.errorMessage = '';
+                        document.getElementById('errorModal').classList.add('hidden');
+                    },
+
+                    showSuccessModal(message, showTrophy = false) {
+                        const modal = document.getElementById('successModal');
+                        document.getElementById('successMessage').textContent = message;
+                        document.getElementById('trophyIcon').classList.toggle('hidden', !showTrophy);
+                        modal.classList.remove('hidden');
+                    },
+
+closeSuccessModal() {
+                        document.getElementById('successModal').classList.add('hidden');
+                    },
+
+                    // Story and Game Navigation Methods
+                    showStoryPart1() {
+                        this.animations.fadeOutScreen('startScreen')
+                            .then(() => this.animations.fadeInScreen('storyScreen'))
+                            .then(() => {
+                                document.getElementById('storyTitle').textContent = this.gameContent.story.title;
+                                document.getElementById('storyImage1').src = `data:image/jpeg;base64,${this.gameContent.images.scene1}`;
+                                document.getElementById('storyText1').textContent = this.gameContent.story.part1;
+                            });
+                    },
+
+                    showStoryPart2() {
+                        this.animations.fadeOutScreen('storyPart1')
+                            .then(() => this.animations.fadeInScreen('storyPart2'))
+                            .then(() => {
+                                document.getElementById('storyImage2').src = `data:image/jpeg;base64,${this.gameContent.images.scene2}`;
+                                document.getElementById('storyText2').textContent = this.gameContent.story.part2;
+                            });
+                    },
+
+                    enterGame() {
+                        this.animations.fadeOutScreen('storyScreen')
+                            .then(() => this.animations.fadeInScreen('gameScreen'))
+                            .then(() => {
+                                const gameWorldImage = document.getElementById('gameWorldImage');
+                                gameWorldImage.src = `data:image/jpeg;base64,${this.gameContent.images.gameWorld}`;
+                                this.animations.setupFloatingPolygons();
+                                this.setupGameElements();
+                            });
+                    }
+                });
+
+                // Initialize game content
+                game.gameContent = {
+                    story: {
+                        title: "The Legend of the Lost Elements",
+                        part1: "In a realm where magic flows like rivers through the ancient lands, a dark force has begun to stir. The sacred elements that maintained balance for centuries have been scattered across the mystical planes.",
+                        part2: "You, a chosen hero from the prophecies, must collect these elements before they fall into the wrong hands. Each element you gather strengthens the forces of light and weakens the growing darkness."
+                    },
+                    images: {
+                        scene1: 'base64_encoded_image_1',
+                        scene2: 'base64_encoded_image_2',
+                        gameWorld: 'base64_encoded_game_world'
+                    }
+                };
+
+                // Setup MetaMask event listeners
+                if (window.ethereum) {
+                    window.ethereum.on('accountsChanged', (accounts) => {
+                        if (accounts.length === 0) {
+                            game.userAccount = null;
+                            game.showError('Please connect your wallet to continue');
+                        } else {
+                            game.userAccount = accounts[0];
+                        }
+                    });
+
+                    window.ethereum.on('chainChanged', () => {
+                        window.location.reload();
+                    });
+                }
+
+                console.log('Game initialized successfully');
+            } catch (error) {
+                console.error('Game initialization error:', error);
+                game.showError('Failed to initialize game');
+            }
+        });
+    </script>
+</head>
+<body class="bg-gray-900 text-white font-medieval">
+    <div id="app">
+        <!-- Video Overlay -->
+        <div id="videoOverlay" class="hidden">
+            <video id="gameVideo" playsinline>
+                <source src="video.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="startScreen" class="flex items-center justify-center bg-gray-900">
+            <div class="text-center p-8">
+                <h1 class="text-5xl mb-8 text-yellow-400">Epic NFT Story Game</h1>
+                <p class="text-xl mb-8">Embark on a magical journey to collect mystical elements</p>
+                <button 
+                    @click="showStoryPart1" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+                    Begin Adventure
+                </button>
+            </div>
+        </div>
+
+        <!-- Story Screen -->
+        <div id="storyScreen" class="min-h-screen bg-gray-900">
+            <!-- Story Part 1 -->
+            <div id="storyPart1" class="container mx-auto px-4 py-8">
+                <h2 id="storyTitle" class="text-4xl text-center mb-8 text-yellow-400"></h2>
+                <div class="max-w-4xl mx-auto">
+                    <img id="storyImage1" class="w-full rounded-lg mb-8" alt="Story Scene 1">
+                    <p id="storyText1" class="text-xl mb-8"></p>
+                    <div class="text-center">
+                        <button 
+                            @click="showStoryPart2" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+                            Continue Story
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Story Part 2 -->
+            <div id="storyPart2" class="container mx-auto px-4 py-8 hidden">
+                <div class="max-w-4xl mx-auto">
+                    <img id="storyImage2" class="w-full rounded-lg mb-8" alt="Story Scene 2">
+                    <p id="storyText2" class="text-xl mb-8"></p>
+                    <div class="text-center">
+                        <button 
+                            @click="connectWallet().then(() => enterGame())" 
+                            class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+                            Enter the Realm
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="gameScreen" class="relative h-screen overflow-hidden">
+            <div class="game-world-wrapper relative">
+                <img id="gameWorldImage" class="w-full h-full object-cover" alt="Game World">
+                
+                <!-- Game Elements Container -->
+                <div id="nftElements" class="absolute inset-0"></div>
+                
+                <!-- Floating Polygons -->
+                <div id="polygonContainer" class="absolute inset-0"></div>
+                
+                <!-- Progress Bar -->
+                <div class="absolute top-4 left-1/2 transform -translate-x-1/2 w-64 bg-gray-700 rounded-full h-4">
+                    <div id="progressBar" class="bg-blue-600 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+                
+                <!-- Progress Text -->
+                <div class="absolute top-12 left-1/2 transform -translate-x-1/2 text-white text-center">
+                    <span id="progressText">0/10 Elements</span><br>
+                    <span id="elementsRemaining" class="text-sm">10 magical elements remaining</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Modal -->
+        <div id="loadingModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-gray-800 p-8 rounded-lg text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+                <p id="loadingMessage">{{ loadingMessage }}</p>
+            </div>
+        </div>
+
+        <!-- Error Modal -->
+        <div id="errorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-gray-800 p-8 rounded-lg text-center">
+                <div class="text-red-500 text-6xl mb-4">
+                    <i class="fas fa-exclamation-circle"></i>
+                </div>
+                <p class="text-xl mb-4">{{ errorMessage }}</p>
+                <button 
+                    @click="hideError" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    Close
+                </button>
+            </div>
+        </div>
+
+        <!-- Success Modal -->
+        <div id="successModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-gray-800 p-8 rounded-lg text-center max-w-md">
+                <div id="trophyIcon" class="hidden text-yellow-400 text-6xl mb-4">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <p id="successMessage" class="text-xl mb-4"></p>
+                <div id="mintSection" class="hidden">
+                    <button 
+                        @click="mintElement" 
+                        class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-2">
+                        Collect Element
+                    </button>
+                    <button 
+                        @click="closeSuccessModal" 
+                        class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+                        Cancel
+                    </button>
+                </div>
+                <div id="burnSection" class="hidden">
+                    <button 
+                        @click="closeSuccessModal" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                        Continue
+</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GameWorld Loading Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const gameWorldImage = document.getElementById('gameWorldImage');
+            if (gameWorldImage) {
+                gameWorldImage.addEventListener('load', () => {
+                    document.getElementById('loadingModal').classList.add('hidden');
+                });
+            }
+        });
+    </script>
+
+    <!-- Contract ABI -->
+    <script>
+        const CONTRACT_ABI = [
+            {
+                "inputs": [],
+                "stateMutability": "nonpayable",
+                "type": "constructor"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "owner",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "approved",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "uint256",
+                        "name": "tokenId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "Approval",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "owner",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "operator",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "bool",
+                        "name": "approved",
+                        "type": "bool"
+                    }
+                ],
+                "name": "ApprovalForAll",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "from",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "to",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "uint256",
+                        "name": "tokenId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "Transfer",
+                "type": "event"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "to",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "tokenId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "approve",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "owner",
+                        "type": "address"
+                    }
+                ],
+                "name": "balanceOf",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "tokenId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "getApproved",
+                "outputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "owner",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "operator",
+                        "type": "address"
+                    }
+                ],
+                "name": "isApprovedForAll",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "elementId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "mint",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "name",
+                "outputs": [
+                    {
+                        "internalType": "string",
+                        "name": "",
+                        "type": "string"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "tokenId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "ownerOf",
+                "outputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "from",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "to",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "tokenId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "safeTransferFrom",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "operator",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "approved",
+                        "type": "bool"
+                    }
+                ],
+                "name": "setApprovalForAll",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "bytes4",
+                        "name": "interfaceId",
+                        "type": "bytes4"
+                    }
+                ],
+                "name": "supportsInterface",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "symbol",
+                "outputs": [
+                    {
+                        "internalType": "string",
+                        "name": "",
+                        "type": "string"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "tokenId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "tokenURI",
+                "outputs": [
+                    {
+                        "internalType": "string",
+                        "name": "",
+                        "type": "string"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "from",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "to",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "tokenId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "transferFrom",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            }
+        ];
+    </script>
+
+    <!-- External Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.14/vue.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
+</body>
+</html>
