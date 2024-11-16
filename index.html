@@ -8,6 +8,18 @@
     <link rel="shortcut icon" type="image/png" href="https://raw.githubusercontent.com/Onixs50/epic-linea-game/main/icon.png">
     <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/Onixs50/epic-linea-game/main/icon.png">
     <title>Epic NFT Story Game</title>
+    
+    <!-- Mobile Height Fix Script -->
+    <script>
+        window.addEventListener('load', () => {
+            const appHeight = () => {
+                const doc = document.documentElement;
+                doc.style.setProperty('--app-height', `${window.innerHeight}px`);
+            };
+            window.addEventListener('resize', appHeight);
+            appHeight();
+        });
+    </script>
 
     <!-- External CSS -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
@@ -15,6 +27,8 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <!-- Custom CSS -->
+    <link href="styles.css" rel="stylesheet">
+    <!-- Responsive Styles -->
     <style>
         :root {
             --app-height: 100%;
@@ -26,6 +40,7 @@
             padding: 0;
         }
 
+        /* Video Overlay Styles */
         #videoOverlay {
             position: fixed;
             top: 0;
@@ -34,7 +49,7 @@
             height: 100vh;
             background: black;
             z-index: 9999;
-            display: flex;
+            display: none;
             justify-content: center;
             align-items: center;
         }
@@ -50,7 +65,6 @@
             position: fixed;
             top: 0;
             left: 0;
-            display: none; /* Initially hidden until video ends */
         }
 
         #storyScreen {
@@ -59,7 +73,6 @@
             position: relative;
             overflow-y: auto;
             background: #111827;
-            display: none;
         }
 
         #gameScreen {
@@ -68,19 +81,6 @@
             position: fixed;
             top: 0;
             left: 0;
-            display: none;
-        }
-
-        .game-world-wrapper {
-            height: var(--app-height);
-        }
-
-        .magical-element {
-            width: 40px;
-            height: 40px;
-            position: absolute;
-            cursor: pointer;
-            transition: transform 0.3s;
         }
 
         @media screen and (max-width: 768px) {
@@ -93,211 +93,648 @@
             }
             .wallet-modal-content { 
                 width: 95%; 
+                max-width: 340px; 
+                padding: 1rem; 
             }
-        }
-
-        @keyframes collectEffect {
-            0% {
-                transform: scale(1);
-                opacity: 1;
+            .text-6xl { 
+                font-size: 2.5rem; 
             }
-            100% {
-                transform: scale(0);
-                opacity: 0;
+            
+            #storyScreen {
+                padding: 1rem;
             }
-        }
-
-        .floating {
-            animation: float 3s ease-in-out infinite;
-        }
-
-        @keyframes float {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-            100% { transform: translateY(0px); }
         }
     </style>
 
-    <!-- Mobile Height Fix Script -->
+    <!-- Initial Scripts -->
     <script>
-        window.addEventListener('load', () => {
-            const appHeight = () => {
-                const doc = document.documentElement;
-                doc.style.setProperty('--app-height', `${window.innerHeight}px`);
-            };
-            window.addEventListener('resize', appHeight);
-appHeight();
+        // Initialize base game object with core UI functions
+        window.game = {
+            showError(message) {
+                const toast = document.getElementById('errorToast');
+                if (toast) {
+                    toast.textContent = message;
+                    toast.classList.remove('hidden');
+                    setTimeout(() => toast.classList.add('hidden'), 3000);
+                }
+            },
 
-        // Check if this is a fresh visit or just a refresh
-        const isFirstVisit = !sessionStorage.getItem('hasVisitedBefore');
-        
-        // Video handling function
-        function handleVideoStart() {
-            if (isFirstVisit) {
-                const videoOverlay = document.createElement('div');
-                videoOverlay.id = 'videoOverlay';
-                videoOverlay.innerHTML = `
-                    <video id="gameVideo" playsinline>
-                        <source src="video.mp4" type="video/mp4">
-                        Your browser does not support the video tag.
-                    </video>
-                `;
-                document.body.appendChild(videoOverlay);
-
-                const video = document.getElementById('gameVideo');
-                video.play();
-
-                // When video ends
-                video.addEventListener('ended', () => {
-                    videoOverlay.style.opacity = '0';
-                    videoOverlay.style.transition = 'opacity 1s';
-                    setTimeout(() => {
-                        videoOverlay.remove();
-                        document.getElementById('startScreen').style.display = 'block';
-                    }, 1000);
+            // Video handling method
+            playGameVideo() {
+                return new Promise((resolve) => {
+                    const videoOverlay = document.getElementById('videoOverlay');
+                    const video = document.getElementById('gameVideo');
+                    videoOverlay.style.display = 'flex';
                     
-                    // Mark that user has seen the video
-                    sessionStorage.setItem('hasVisitedBefore', 'true');
+                    video.addEventListener('ended', () => {
+                        videoOverlay.style.opacity = '0';
+                        videoOverlay.style.transition = 'opacity 1s';
+                        setTimeout(() => {
+                            videoOverlay.style.display = 'none';
+                            resolve();
+                        }, 1000);
+                    });
+
+                    video.play().catch(error => {
+                        console.error('Video playback failed:', error);
+                        resolve(); // Continue if video fails
+});
                 });
-            } else {
-                // If not first visit, show start screen directly
-                document.getElementById('startScreen').style.display = 'block';
+            },
+
+            showTutorial() {
+                document.getElementById('tutorialModal').classList.remove('hidden');
+            },
+
+            closeTutorial() {
+                document.getElementById('tutorialModal').classList.add('hidden');
+            },
+
+            showWalletModal() {
+                document.getElementById('walletModal').classList.add('active');
+            },
+
+            closeWalletModal() {
+                document.getElementById('walletModal').classList.remove('active');
+            },
+
+            // Updated resetGame function
+            async resetGame() {
+                // Clear game state
+                this.mintedElements?.clear();
+                this.gameContent = null;
+                
+                const gameScreen = document.getElementById('gameScreen');
+                if (gameScreen) {
+                    // Add fade-out animation
+                    gameScreen.classList.add('fade-out');
+                    
+                    // Wait for animation to complete
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    // Hide game screen and show start screen
+                    gameScreen.classList.add('hidden');
+                    gameScreen.classList.remove('fade-out');
+                    
+                    // Reset start screen elements
+                    const startScreen = document.getElementById('startScreen');
+                    if (startScreen) {
+                        startScreen.classList.remove('hidden');
+                        startScreen.classList.add('fade-in');
+                    }
+                    
+                    // Reset input and progress
+                    const promptInput = document.getElementById('promptInput');
+                    if (promptInput) promptInput.value = '';
+                    
+                    const charCount = document.getElementById('charCount');
+                    if (charCount) charCount.textContent = '0/50';
+                    
+                    // Clear floating polygons
+                    const polygons = document.querySelector('#floatingPolygons');
+                    if (polygons) polygons.innerHTML = '';
+                    
+                    // Reset progress bar
+                    const progressBar = document.getElementById('progressBar');
+                    if (progressBar) progressBar.style.width = '0%';
+                    
+                    const progressText = document.getElementById('progressText');
+                    if (progressText) progressText.textContent = '0/10 Elements';
+                    
+                    // Clear NFT elements
+                    const nftElements = document.getElementById('nftElements');
+                    if (nftElements) nftElements.innerHTML = '';
+                }
+                
+                return true;
+            },
+
+            // Updated exitGame function
+            async exitGame() {
+                try {
+                    if (this.mintedElements?.size > 0) {
+                        // Show confirmation modal for burning elements
+                        this.showSuccessModal(
+                            'You have uncollected elements. Would you like to burn them and exit?',
+                            async () => {
+                                try {
+                                    // Wait for burn transaction
+                                    await walletHandler.burnElements();
+                                    // Reset game after successful burn
+                                    await this.resetGame();
+                                } catch (error) {
+                                    console.error('Error during exit:', error);
+                                    this.showError('Failed to burn elements. Please try again.');
+                                }
+                            },
+                            { showBurn: true }
+                        );
+                    } else {
+                        // If no elements to burn, just reset
+                        const success = await this.resetGame();
+                        if (!success) {
+                            this.showError('Failed to exit game. Please try again.');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error during exit:', error);
+this.showError('Failed to exit game. Please try again.');
+                }
+            },
+
+            // Add showSuccessModal if not already defined
+            showSuccessModal(message, callback = null, options = {}) {
+                const modal = document.getElementById('successModal');
+                if (!modal) return;
+
+                const messageEl = document.getElementById('successMessage');
+                if (messageEl) messageEl.textContent = message;
+
+                // Handle button sections
+                const burnSection = document.getElementById('burnSection');
+                if (burnSection) {
+                    burnSection.classList.toggle('hidden', !options.showBurn);
+                    if (options.showBurn && callback) {
+                        const burnButton = burnSection.querySelector('button');
+                        if (burnButton) {
+                            burnButton.onclick = async () => {
+                                try {
+                                    await callback();
+                                    this.closeSuccessModal();
+                                } catch (error) {
+                                    this.showError(error.message);
+                                }
+                            };
+                        }
+                    }
+                }
+
+                modal.classList.remove('hidden');
+            },
+
+            closeSuccessModal() {
+                const modal = document.getElementById('successModal');
+                if (modal) {
+                    modal.classList.add('fade-out');
+                    setTimeout(() => {
+                        modal.classList.add('hidden');
+                        modal.classList.remove('fade-out');
+                    }, 500);
+                }
             }
-        }
+        };
+    </script>
+</head>
+<body class="bg-gray-900 min-h-screen">
+    <!-- Video Overlay -->
+    <div id="videoOverlay">
+        <video id="gameVideo" playsinline>
+            <source src="video.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
 
-        // Initialize game when document is ready
-        document.addEventListener('DOMContentLoaded', async function() {
+    <!-- Error Toast -->
+    <div id="errorToast" class="error-toast hidden"></div>
+
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="hidden fixed inset-0 loading-overlay z-50 flex items-center justify-center">
+        <div class="text-center">
+            <div class="floating mb-8">
+                <div class="w-24 h-24 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            </div>
+            <h2 class="text-2xl text-white mb-4 fantasy-font">Creating Your Adventure</h2>
+<p id="loadingText" class="text-purple-300 typing-text">Generating your epic world, brave hero...</p>
+        </div>
+    </div>
+
+    <!-- Wallet Modal -->
+    <div id="walletModal" class="wallet-modal">
+        <div class="wallet-modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl text-white fantasy-font">Connect Wallet</h3>
+                <button onclick="game.closeWalletModal()" class="text-gray-400 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <button onclick="game.connectWallet('metamask')" 
+                        class="w-full bg-gray-700 hover:bg-gray-600 p-4 rounded-lg flex items-center justify-between group transition-all duration-300">
+                    <div class="flex items-center">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" 
+                             alt="MetaMask" 
+                             class="w-8 h-8 mr-3">
+                        <span class="text-white text-lg">MetaMask</span>
+                    </div>
+                    <i class="fas fa-chevron-right text-gray-400 group-hover:text-white transform group-hover:translate-x-1 transition-all"></i>
+                </button>
+                
+                <button onclick="game.connectWallet('okx')" 
+                        class="w-full bg-gray-700 hover:bg-gray-600 p-4 rounded-lg flex items-center justify-between group transition-all duration-300">
+                    <div class="flex items-center">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/2/2c/OKX_logo.svg" 
+                             alt="OKX" 
+                             class="w-8 h-8 mr-3">
+                        <span class="text-white text-lg">OKX Wallet</span>
+                    </div>
+                    <i class="fas fa-chevron-right text-gray-400 group-hover:text-white transform group-hover:translate-x-1 transition-all"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tutorial Modal -->
+    <div id="tutorialModal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50">
+        <div class="max-w-2xl mx-auto mt-20 bg-gray-800 rounded-lg p-8">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl text-white fantasy-font">How to Play</h3>
+                <button onclick="game.closeTutorial()" class="text-white text-xl">&times;</button>
+            </div>
+            <div class="text-white space-y-4">
+                <p>1. Enter a magical prompt to begin your quest</p>
+                <p>2. Find and collect 10 hidden magical elements</p>
+                <p>3. Mint each element as an NFT</p>
+                <p>4. Complete your collection to defeat evil and save the realm!</p>
+                <p>5. Remember, you cannot obtain the 10th element until you have collected the other 9 elements</p>
+                
+                <!-- Social Links -->
+                <div class="flex justify-center space-x-6 mt-6">
+                    <a href="https://twitter.com/sadeghss50" 
+                       target="_blank" 
+                       class="text-blue-400 hover:text-blue-300 transition-colors flex items-center space-x-2">
+                        <i class="fab fa-twitter text-xl"></i>
+                        <span>@sadeghss50</span>
+                    </a>
+                    <a href="https://github.com/onixs50" 
+                       target="_blank" 
+                       class="text-gray-300 hover:text-white transition-colors flex items-center space-x-2">
+                        <i class="fab fa-github text-xl"></i>
+                        <span>onixs50</span>
+</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="startScreen" class="relative min-h-screen">
+        <div class="absolute inset-0 overflow-hidden">
+            <img src="val.png" alt="Background" class="w-full h-full object-cover zoom-bg">
+        </div>
+        <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div class="container mx-auto px-4 text-center">
+                <h1 class="text-6xl mb-2 text-white fantasy-font glowing">Epic NFT Quest</h1>
+                <p class="text-xl mb-1 text-gray-300">Life On Linea</p>
+                <p class="text-sm text-gray-500">By onixia</p>                
+                <!-- Game Menu -->
+                <div class="flex justify-center space-x-4 mb-8">
+                    <button onclick="game.showTutorial()" 
+                            class="text-white fantasy-font hover:text-purple-300 transition-colors transform hover:scale-105">
+                        <i class="fas fa-book-open mr-2"></i>
+                        How to Play
+                    </button>
+
+                    <button onclick="game.checkExistingNFTs()" 
+                            class="text-white fantasy-font hover:text-purple-300 transition-colors transform hover:scale-105">
+                        <i class="fas fa-gem mr-2"></i>
+                        Check My NFTs
+                    </button>
+                </div>
+
+                <!-- Wallet Connection -->
+                <div class="mb-8" id="walletSection">
+                    <button onclick="game.showWalletModal()"
+                            id="connectWalletBtn"
+                            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105">
+                        <i class="fas fa-wallet mr-2"></i>
+                        Connect Wallet
+                    </button>
+
+                    <!-- Connected Wallet Info -->
+                    <div id="walletInfo" class="hidden">
+                        <div class="bg-gray-800 rounded-lg px-6 py-3 inline-flex items-center space-x-4">
+                            <span id="walletAddress" class="text-white"></span>
+                            <button onclick="game.disconnectWallet()" 
+                                    class="text-red-500 hover:text-red-400 transition-colors">
+                                <i class="fas fa-sign-out-alt mr-1"></i>
+Disconnect
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Game Start Section -->
+                <div id="gameStartSection" class="hidden">
+                    <div class="max-w-md mx-auto space-y-4">
+                        <!-- Quest Description -->
+                        <div class="text-white text-xl fantasy-font">
+                            Enter your prompt to create a unique quest and defeat the evil that threatens our realm!
+                        </div>
+
+                        <div class="relative">
+                            <input type="text" 
+                                   id="promptInput" 
+                                   maxlength="50"
+                                   class="w-full px-4 py-3 rounded-lg bg-gray-800 text-white border border-purple-500 focus:border-purple-700 focus:ring-2 focus:ring-purple-500 mb-2"
+                                   placeholder="Enter your story prompt..."
+                                   oninput="game.updateCharacterCount(this)">
+                            <div class="absolute top-3 right-3 text-gray-400">
+                                <i class="fas fa-magic"></i>
+                            </div>
+                            <div id="charCount" class="text-right text-gray-400 text-sm mb-4">0/50</div>
+                        </div>
+                        
+                        <button onclick="game.startGame()" 
+                                class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105 flex items-center justify-center">
+                            <i class="fas fa-play mr-2"></i>
+                            Start Your Quest (0.00002 ETH)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Story Screen -->
+    <div id="storyScreen" class="hidden min-h-screen bg-gray-900 relative">
+        <div class="container mx-auto px-4 py-8">
+            <!-- Story Title -->
+            <h2 id="storyTitle" class="text-4xl text-center text-white fantasy-font mb-8 glowing"></h2>
+            
+            <!-- Part 1 -->
+            <div id="storyPart1" class="fade-in">
+                <div class="max-w-4xl mx-auto mb-8">
+                    <div class="relative overflow-hidden rounded-lg shadow-2xl mb-4">
+                        <div class="aspect-w-16 aspect-h-9">
+                            <img id="storyImage1" class="w-full h-full object-cover select-none" alt="Story Scene 1">
+                        </div>
+                    </div>
+                    <p id="storyText1" class="text-white text-xl fantasy-font leading-relaxed"></p>
+                </div>
+                <button onclick="game.showStoryPart2()" 
+                        class="glowing text-white text-2xl fantasy-font hover:scale-110 transition-transform mx-auto block">
+                    <span>Continue the Tale</span>
+<i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+
+            <!-- Part 2 -->
+            <div id="storyPart2" class="hidden fade-in">
+                <div class="max-w-4xl mx-auto mb-8">
+                    <div class="relative overflow-hidden rounded-lg shadow-2xl mb-4">
+                        <div class="aspect-w-16 aspect-h-9">
+                            <img id="storyImage2" class="w-full h-full object-cover select-none" alt="Story Scene 2">
+                        </div>
+                    </div>
+                    <p id="storyText2" class="text-white text-xl fantasy-font leading-relaxed"></p>
+                </div>
+                <button onclick="game.enterGame()" 
+                        class="glowing text-white text-2xl fantasy-font hover:scale-110 transition-transform mx-auto block group">
+                    <span>Enter the Challenge</span>
+                    <i class="fas fa-door-open ml-2 transform group-hover:rotate-12 transition-transform"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="gameScreen" class="hidden min-h-screen relative">
+        <!-- Animated Background -->
+        <div class="game-world-background absolute inset-0 bg-black">
+            <div id="floatingPolygons" class="absolute inset-0"></div>
+        </div>
+        
+        <!-- Boss Monster Warning -->
+        <div class="absolute top-20 left-1/2 transform -translate-x-1/2 text-center z-20">
+            <h2 class="text-3xl text-red-500 fantasy-font mb-4 glowing">Beware of the Evil Boss!</h2>
+            <p class="text-xl text-white fantasy-font">Find all 10 magical elements to defeat it!</p>
+        </div>
+
+        <!-- Game Controls -->
+        <div class="absolute top-4 left-4 space-y-2 z-10">
+            <button onclick="game.resetGame()" 
+                    class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 fantasy-font transform hover:scale-105 flex items-center space-x-2">
+                <i class="fas fa-undo-alt"></i>
+                <span>Reset Game</span>
+            </button>
+            <button onclick="game.exitGame()" 
+                    class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 fantasy-font transform hover:scale-105 flex items-center space-x-2">
+                <i class="fas fa-door-open"></i>
+<span>Exit Game</span>
+            </button>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="absolute top-4 right-4 bg-black bg-opacity-70 rounded-lg p-4 z-10">
+            <div class="text-white mb-2 fantasy-font flex items-center">
+                <i class="fas fa-gem mr-2"></i>
+                <span>Elements Collected</span>
+            </div>
+            <div class="w-48 h-2 bg-gray-700 rounded-full overflow-hidden">
+                <div id="progressBar" 
+                     class="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500" 
+                     style="width: 0%"></div>
+            </div>
+            <div id="progressText" class="text-white text-center mt-1 fantasy-font">0/10 Elements</div>
+        </div>
+
+        <!-- Game World -->
+        <div class="game-world-wrapper">
+            <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+            <img id="gameWorldImage" class="game-world-image select-none max-h-[80vh] object-contain mx-auto rounded-lg shadow-2xl" alt="Game World">
+            
+            <!-- NFT Elements Container -->
+            <div id="nftElements" class="absolute inset-0 pointer-events-auto">
+                <!-- NFT elements will be dynamically added here -->
+            </div>
+
+            <!-- Particle Effects Container -->
+            <div id="particleContainer" class="absolute inset-0 pointer-events-none">
+                <!-- Particle effects will be dynamically added here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
+        <div class="bg-gray-800 rounded-lg p-8 max-w-md text-center fantasy-font transform transition-transform duration-300">
+            <!-- Trophy Icon (only shown for completion) -->
+            <div id="trophyIcon" class="hidden mb-6">
+                <div class="w-24 h-24 mx-auto bg-purple-600 rounded-full flex items-center justify-center">
+                    <i class="fas fa-trophy text-4xl text-yellow-400"></i>
+                </div>
+            </div>
+
+            <h2 class="text-2xl text-white mb-4">Congratulations!</h2>
+            <p id="successMessage" class="text-gray-300 mb-6"></p>
+            
+            <!-- Action Buttons -->
+            <div class="space-y-4">
+                <!-- Burn Section -->
+                <div id="burnSection" class="hidden">
+                    <button onclick="game.burnElements()" 
+                            class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
+                        <i class="fas fa-fire"></i>
+                        <span>Burn Elements</span>
+                    </button>
+                </div>
+
+                <!-- Mint Section -->
+                <div id="mintSection" class="hidden">
+                    <button onclick="game.mintElement()" 
+                            class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
+                        <i class="fas fa-gem"></i>
+                        <span>Mint NFT (0.00002 ETH)</span>
+                    </button>
+                </div>
+
+                <!-- Continue Button -->
+                <button onclick="game.closeSuccessModal()" 
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
+                    <i class="fas fa-check"></i>
+<span>Continue</span>
+                </button>
+            </div>
+
+            <!-- Collection Progress (shown for mint success) -->
+            <div id="collectionProgress" class="hidden mt-4 text-gray-300">
+                <p>Keep collecting magical elements to defeat the evil boss!</p>
+                <p class="text-sm mt-2" id="elementsRemaining"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+    <script type="module">
+        import { generateGameContent } from './js/config.js';
+        import walletHandler from './js/wallet.js';
+        import { animationManager } from './js/animations.js';
+        import { 
+            CONTRACT_ADDRESS, 
+            CONTRACT_ABI, 
+            CHAIN_CONFIG,
+            ERROR_MESSAGES,
+            SUCCESS_MESSAGES 
+        } from './js/contracts.js';
+
+        // Game Configuration
+        const ELEMENT_TYPES = ['star', 'chest', 'blackhole'];
+        const NFT_ANIMATIONS = ['collectEffect', 'starGlow', 'treasureChest', 'blackHole'];
+
+        // Initialize Game
+        document.addEventListener('DOMContentLoaded', async () => {
             try {
-                // Start video or game based on visit status
-                handleVideoStart();
+                // Check wallet availability
+                if (typeof window.ethereum === 'undefined' && typeof window.okxwallet === 'undefined') {
+                    game.showError('Please install MetaMask or OKX Wallet to play');
+                }
 
-                const game = new Vue({
-                    el: '#app',
-                    data: {
-                        gameContent: null,
-                        userAccount: null,
-                        contract: null,
-                        provider: null,
-                        signer: null,
-                        mintedElements: new Set(),
-                        pendingElement: null,
-                        loading: false,
-                        loadingMessage: '',
-                        errorMessage: '',
+                // Initialize animation manager
+                animationManager.setupFloatingPolygons();
 
-                        animations: {
-                            fadeOutScreen(screenId) {
-                                return new Promise(resolve => {
-                                    const screen = document.getElementById(screenId);
-                                    screen.style.opacity = '0';
-                                    screen.style.transition = 'opacity 1s';
-                                    setTimeout(() => {
-                                        screen.style.display = 'none';
-                                        resolve();
-                                    }, 1000);
-                                });
-                            },
+                // Extend game object with all functionality
+                Object.assign(window.game, {
+                    // Contract configuration
+                    CONTRACT_ADDRESS,
+                    CONTRACT_ABI,
+                    CHAIN_CONFIG,
 
-                            fadeInScreen(screenId) {
-                                return new Promise(resolve => {
-                                    const screen = document.getElementById(screenId);
-                                    screen.style.display = 'block';
-                                    setTimeout(() => {
-                                        screen.style.opacity = '1';
-                                        screen.style.transition = 'opacity 1s';
-                                        resolve();
-                                    }, 50);
-                                });
-                            },
+                    // Game state
+                    web3: null,
+                    contract: null,
+                    userAccount: null,
+                    gameContent: null,
+                    mintedElements: new Set(),
+                    pendingElement: null,
 
-                            setupFloatingPolygons() {
-                                const container = document.getElementById('polygonContainer');
-                                const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD'];
-                                
-                                for (let i = 0; i < 20; i++) {
-                                    const polygon = document.createElement('div');
-                                    polygon.className = 'floating magical-element';
-                                    polygon.style.left = `${Math.random() * 90}%`;
-                                    polygon.style.top = `${Math.random() * 90}%`;
-                                    polygon.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                                    polygon.style.clipPath = 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)';
-                                    polygon.style.animation = `float ${3 + Math.random() * 2}s ease-in-out infinite`;
-                                    polygon.style.animationDelay = `${Math.random() * 2}s`;
-                                    container.appendChild(polygon);
-                                }
-                            }
-                        },
+                    // Import wallet methods
+                    ...walletHandler,
 
-                        // Contract interaction methods
-                        async connectWallet() {
-                            try {
-                                if (typeof window.ethereum === 'undefined') {
-                                    throw new Error('Please install MetaMask to play this game');
-                                }
+                    // Animation methods
+                    animations: animationManager,
 
-                                this.showLoading('Connecting wallet...');
-                                
-                                // Request account access
-                                const accounts = await window.ethereum.request({
-                                    method: 'eth_requestAccounts'
-                                });
-                                
-                                this.userAccount = accounts[0];
-                                
-                                // Setup ethers provider and signer
-                                this.provider = new ethers.providers.Web3Provider(window.ethereum);
-                                this.signer = this.provider.getSigner();
-                                
-                                // Initialize contract
-                                const contractAddress = '0x123...'; // Your contract address
-                                const contractABI = [...]; // Your contract ABI
-                                this.contract = new ethers.Contract(
-                                    contractAddress,
-                                    contractABI,
-                                    this.signer
-                                );
+// Content generation
+                    generateGameContent,
 
-                                this.hideLoading();
-                                this.showSuccessModal('Wallet connected successfully!');
-                            } catch (error) {
-                                console.error('Wallet connection error:', error);
-                                this.showError(error.message);
-                                this.hideLoading();
-                            }
-                        },
+                    // Game specific methods
+                    async updateCharacterCount(input) {
+                        const count = input.value.length;
+                        document.getElementById('charCount').textContent = `${count}/50`;
+                    },
 
-                        async mintNFT(elementId) {
-                            if (!this.contract) throw new Error('Contract not initialized');
+                    async startGame() {
+                        const promptInput = document.getElementById('promptInput');
+                        const prompt = promptInput.value.trim();
+                        
+                        if (!prompt) {
+                            this.showError('Please enter a story prompt');
+                            return;
+                        }
+
+                        try {
+                            this.showLoading('Creating your epic adventure...');
                             
-                            const tx = await this.contract.mint(elementId);
-                            await tx.wait();
+                            // Start transaction
+                            await this.startNewGame(prompt);
                             
-                            return tx;
-                        },
+                            // Generate content
+                            this.gameContent = await generateGameContent(prompt);
+                            
+                            // Show story
+                            this.showStoryPart1();
+                        } catch (error) {
+                            console.error('Error starting game:', error);
+                            this.showError(error.message);
+                        } finally {
+                            this.hideLoading();
+                        }
+                    },
 
-                        // Game setup and element positioning
-                        setupGameElements() {
-                            const positions = this.calculateElementPositions();
-                            const container = document.getElementById('nftElements');
-                            
-                            positions.forEach((pos, index) => {
+                    setupGameElements() {
+                        const container = document.getElementById('nftElements');
+                        container.innerHTML = '';
+                        const positions = this.generateRandomPositions(10);
+                        
+                        positions.forEach((pos, index) => {
+                            const elementId = index + 1;
+                            if (!this.mintedElements.has(elementId)) {
+                                const type = ELEMENT_TYPES[Math.floor(Math.random() * ELEMENT_TYPES.length)];
                                 const element = document.createElement('div');
-                                element.className = 'magical-element';
+                                element.className = `magical-element ${type}`;
                                 element.style.left = `${pos.x}%`;
                                 element.style.top = `${pos.y}%`;
-                                element.style.backgroundColor = this.getRandomColor();
-                                element.style.clipPath = this.getRandomShape();
-                                element.onclick = () => this.handleElementClick(index, element);
-                                container.appendChild(element);
-                            });
-                        },
+                                element.style.opacity = '0';
+                                
+                                // Create hover detection area
+                                const detectionArea = document.createElement('div');
+                                detectionArea.className = 'absolute w-16 h-16 -left-3 -top-3 cursor-pointer';
+                                element.appendChild(detectionArea);
+                                
+                                element.addEventListener('mouseover', () => {
+                                    element.style.opacity = '1';
+                                    document.body.style.cursor = 'pointer';
+                                });
 
-                        calculateElementPositions() {
-                            const positions = [];
-                            const margin = 10; // Minimum distance from edges
-                            const minDistance = 15; // Minimum distance between elements
-                            
-for (let i = 0; i < 10; i++) {
+                                element.addEventListener('mouseleave', () => {
+                                    element.style.opacity = '0';
+                                    document.body.style.cursor = 'default';
+                                });
+                                
+                                element.onclick = () => this.handleElementClick(elementId, element);
+                                container.appendChild(element);
+                            }
+                        });
+                        
+                        this.updateProgress();
+                    },
+
+                    generateRandomPositions(count) {
+                        const positions = [];
+                        const margin = 10;
+                        const minDistance = 15;
+                        
+                        for (let i = 0; i < count; i++) {
                             let validPosition = false;
                             let attempts = 0;
                             
@@ -320,26 +757,7 @@ for (let i = 0; i < 10; i++) {
                             }
                         }
                         
-                        return positions;
-                    },
-
-                    getRandomColor() {
-                        const colors = [
-                            '#FF6B6B', '#4ECDC4', '#45B7D1', 
-                            '#96CEB4', '#FFEEAD', '#FFD93D', 
-                            '#FF8B94', '#A8E6CF'
-                        ];
-                        return colors[Math.floor(Math.random() * colors.length)];
-                    },
-
-                    getRandomShape() {
-                        const shapes = [
-                            'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)',
-                            'polygon(25% 0%, 100% 0%, 75% 100%, 0% 100%)',
-                            'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
-                            'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)'
-                        ];
-                        return shapes[Math.floor(Math.random() * shapes.length)];
+return positions;
                     },
 
                     async handleElementClick(elementId, element) {
@@ -425,50 +843,7 @@ for (let i = 0; i < 10; i++) {
                             `${this.mintedElements.size}/10 Elements`;
                     },
 
-                    completeGame() {
-                        this.showSuccessModal(
-                            'Congratulations! You have collected all magical elements!',
-                            true
-                        );
-                        document.getElementById('elementsRemaining').textContent = 
-                            'All magical elements collected!';
-                    },
-
-                    // Modal and UI utility methods
-                    showLoading(message) {
-                        this.loading = true;
-                        this.loadingMessage = message;
-                        document.getElementById('loadingModal').classList.remove('hidden');
-                    },
-
-                    hideLoading() {
-                        this.loading = false;
-                        this.loadingMessage = '';
-                        document.getElementById('loadingModal').classList.add('hidden');
-                    },
-
-                    showError(message) {
-                        this.errorMessage = message;
-                        document.getElementById('errorModal').classList.remove('hidden');
-                    },
-
-                    hideError() {
-                        this.errorMessage = '';
-                        document.getElementById('errorModal').classList.add('hidden');
-                    },
-
-                    showSuccessModal(message, showTrophy = false) {
-                        const modal = document.getElementById('successModal');
-                        document.getElementById('successMessage').textContent = message;
-                        document.getElementById('trophyIcon').classList.toggle('hidden', !showTrophy);
-                        modal.classList.remove('hidden');
-                    },
-
-closeSuccessModal() {
-                        document.getElementById('successModal').classList.add('hidden');
-                    },
-
-                    // Story and Game Navigation Methods
+                    // UI Navigation methods
                     showStoryPart1() {
                         this.animations.fadeOutScreen('startScreen')
                             .then(() => this.animations.fadeInScreen('storyScreen'))
@@ -483,13 +858,14 @@ closeSuccessModal() {
                         this.animations.fadeOutScreen('storyPart1')
                             .then(() => this.animations.fadeInScreen('storyPart2'))
                             .then(() => {
-                                document.getElementById('storyImage2').src = `data:image/jpeg;base64,${this.gameContent.images.scene2}`;
-                                document.getElementById('storyText2').textContent = this.gameContent.story.part2;
-                            });
+document.getElementById('storyImage2').src = `data:image/jpeg;base64,${this.gameContent.images.scene2}`;
+                            document.getElementById('storyText2').textContent = this.gameContent.story.part2;
+                        });
                     },
 
                     enterGame() {
                         this.animations.fadeOutScreen('storyScreen')
+                            .then(() => this.playGameVideo()) // Play video before showing game screen
                             .then(() => this.animations.fadeInScreen('gameScreen'))
                             .then(() => {
                                 const gameWorldImage = document.getElementById('gameWorldImage');
@@ -500,36 +876,6 @@ closeSuccessModal() {
                     }
                 });
 
-                // Initialize game content
-                game.gameContent = {
-                    story: {
-                        title: "The Legend of the Lost Elements",
-                        part1: "In a realm where magic flows like rivers through the ancient lands, a dark force has begun to stir. The sacred elements that maintained balance for centuries have been scattered across the mystical planes.",
-                        part2: "You, a chosen hero from the prophecies, must collect these elements before they fall into the wrong hands. Each element you gather strengthens the forces of light and weakens the growing darkness."
-                    },
-                    images: {
-                        scene1: 'base64_encoded_image_1',
-                        scene2: 'base64_encoded_image_2',
-                        gameWorld: 'base64_encoded_game_world'
-                    }
-                };
-
-                // Setup MetaMask event listeners
-                if (window.ethereum) {
-                    window.ethereum.on('accountsChanged', (accounts) => {
-                        if (accounts.length === 0) {
-                            game.userAccount = null;
-                            game.showError('Please connect your wallet to continue');
-                        } else {
-                            game.userAccount = accounts[0];
-                        }
-                    });
-
-                    window.ethereum.on('chainChanged', () => {
-                        window.location.reload();
-                    });
-                }
-
                 console.log('Game initialized successfully');
             } catch (error) {
                 console.error('Game initialization error:', error);
@@ -537,481 +883,8 @@ closeSuccessModal() {
             }
         });
     </script>
-</head>
-<body class="bg-gray-900 text-white font-medieval">
-    <div id="app">
-        <!-- Video Overlay -->
-        <div id="videoOverlay" class="hidden">
-            <video id="gameVideo" playsinline>
-                <source src="video.mp4" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
-        </div>
 
-        <!-- Start Screen -->
-        <div id="startScreen" class="flex items-center justify-center bg-gray-900">
-            <div class="text-center p-8">
-                <h1 class="text-5xl mb-8 text-yellow-400">Epic NFT Story Game</h1>
-                <p class="text-xl mb-8">Embark on a magical journey to collect mystical elements</p>
-                <button 
-                    @click="showStoryPart1" 
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
-                    Begin Adventure
-                </button>
-            </div>
-        </div>
-
-        <!-- Story Screen -->
-        <div id="storyScreen" class="min-h-screen bg-gray-900">
-            <!-- Story Part 1 -->
-            <div id="storyPart1" class="container mx-auto px-4 py-8">
-                <h2 id="storyTitle" class="text-4xl text-center mb-8 text-yellow-400"></h2>
-                <div class="max-w-4xl mx-auto">
-                    <img id="storyImage1" class="w-full rounded-lg mb-8" alt="Story Scene 1">
-                    <p id="storyText1" class="text-xl mb-8"></p>
-                    <div class="text-center">
-                        <button 
-                            @click="showStoryPart2" 
-                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
-                            Continue Story
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Story Part 2 -->
-            <div id="storyPart2" class="container mx-auto px-4 py-8 hidden">
-                <div class="max-w-4xl mx-auto">
-                    <img id="storyImage2" class="w-full rounded-lg mb-8" alt="Story Scene 2">
-                    <p id="storyText2" class="text-xl mb-8"></p>
-                    <div class="text-center">
-                        <button 
-                            @click="connectWallet().then(() => enterGame())" 
-                            class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
-                            Enter the Realm
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Game Screen -->
-        <div id="gameScreen" class="relative h-screen overflow-hidden">
-            <div class="game-world-wrapper relative">
-                <img id="gameWorldImage" class="w-full h-full object-cover" alt="Game World">
-                
-                <!-- Game Elements Container -->
-                <div id="nftElements" class="absolute inset-0"></div>
-                
-                <!-- Floating Polygons -->
-                <div id="polygonContainer" class="absolute inset-0"></div>
-                
-                <!-- Progress Bar -->
-                <div class="absolute top-4 left-1/2 transform -translate-x-1/2 w-64 bg-gray-700 rounded-full h-4">
-                    <div id="progressBar" class="bg-blue-600 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
-                </div>
-                
-                <!-- Progress Text -->
-                <div class="absolute top-12 left-1/2 transform -translate-x-1/2 text-white text-center">
-                    <span id="progressText">0/10 Elements</span><br>
-                    <span id="elementsRemaining" class="text-sm">10 magical elements remaining</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Loading Modal -->
-        <div id="loadingModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div class="bg-gray-800 p-8 rounded-lg text-center">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                <p id="loadingMessage">{{ loadingMessage }}</p>
-            </div>
-        </div>
-
-        <!-- Error Modal -->
-        <div id="errorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div class="bg-gray-800 p-8 rounded-lg text-center">
-                <div class="text-red-500 text-6xl mb-4">
-                    <i class="fas fa-exclamation-circle"></i>
-                </div>
-                <p class="text-xl mb-4">{{ errorMessage }}</p>
-                <button 
-                    @click="hideError" 
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                    Close
-                </button>
-            </div>
-        </div>
-
-        <!-- Success Modal -->
-        <div id="successModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div class="bg-gray-800 p-8 rounded-lg text-center max-w-md">
-                <div id="trophyIcon" class="hidden text-yellow-400 text-6xl mb-4">
-                    <i class="fas fa-trophy"></i>
-                </div>
-                <p id="successMessage" class="text-xl mb-4"></p>
-                <div id="mintSection" class="hidden">
-                    <button 
-                        @click="mintElement" 
-                        class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-2">
-                        Collect Element
-                    </button>
-                    <button 
-                        @click="closeSuccessModal" 
-                        class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
-                        Cancel
-                    </button>
-                </div>
-                <div id="burnSection" class="hidden">
-                    <button 
-                        @click="closeSuccessModal" 
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                        Continue
-</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- GameWorld Loading Script -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const gameWorldImage = document.getElementById('gameWorldImage');
-            if (gameWorldImage) {
-                gameWorldImage.addEventListener('load', () => {
-                    document.getElementById('loadingModal').classList.add('hidden');
-                });
-            }
-        });
-    </script>
-
-    <!-- Contract ABI -->
-    <script>
-        const CONTRACT_ABI = [
-            {
-                "inputs": [],
-                "stateMutability": "nonpayable",
-                "type": "constructor"
-            },
-            {
-                "anonymous": false,
-                "inputs": [
-                    {
-                        "indexed": true,
-                        "internalType": "address",
-                        "name": "owner",
-                        "type": "address"
-                    },
-                    {
-                        "indexed": true,
-                        "internalType": "address",
-                        "name": "approved",
-                        "type": "address"
-                    },
-                    {
-                        "indexed": true,
-                        "internalType": "uint256",
-                        "name": "tokenId",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "Approval",
-                "type": "event"
-            },
-            {
-                "anonymous": false,
-                "inputs": [
-                    {
-                        "indexed": true,
-                        "internalType": "address",
-                        "name": "owner",
-                        "type": "address"
-                    },
-                    {
-                        "indexed": true,
-                        "internalType": "address",
-                        "name": "operator",
-                        "type": "address"
-                    },
-                    {
-                        "indexed": false,
-                        "internalType": "bool",
-                        "name": "approved",
-                        "type": "bool"
-                    }
-                ],
-                "name": "ApprovalForAll",
-                "type": "event"
-            },
-            {
-                "anonymous": false,
-                "inputs": [
-                    {
-                        "indexed": true,
-                        "internalType": "address",
-                        "name": "from",
-                        "type": "address"
-                    },
-                    {
-                        "indexed": true,
-                        "internalType": "address",
-                        "name": "to",
-                        "type": "address"
-                    },
-                    {
-                        "indexed": true,
-                        "internalType": "uint256",
-                        "name": "tokenId",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "Transfer",
-                "type": "event"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "address",
-                        "name": "to",
-                        "type": "address"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "tokenId",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "approve",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "address",
-                        "name": "owner",
-                        "type": "address"
-                    }
-                ],
-                "name": "balanceOf",
-                "outputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "",
-                        "type": "uint256"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "tokenId",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "getApproved",
-                "outputs": [
-                    {
-                        "internalType": "address",
-                        "name": "",
-                        "type": "address"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "address",
-                        "name": "owner",
-                        "type": "address"
-                    },
-                    {
-                        "internalType": "address",
-                        "name": "operator",
-                        "type": "address"
-                    }
-                ],
-                "name": "isApprovedForAll",
-                "outputs": [
-                    {
-                        "internalType": "bool",
-                        "name": "",
-                        "type": "bool"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "elementId",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "mint",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [],
-                "name": "name",
-                "outputs": [
-                    {
-                        "internalType": "string",
-                        "name": "",
-                        "type": "string"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "tokenId",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "ownerOf",
-                "outputs": [
-                    {
-                        "internalType": "address",
-                        "name": "",
-                        "type": "address"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "address",
-                        "name": "from",
-                        "type": "address"
-                    },
-                    {
-                        "internalType": "address",
-                        "name": "to",
-                        "type": "address"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "tokenId",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "safeTransferFrom",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "address",
-                        "name": "operator",
-                        "type": "address"
-                    },
-                    {
-                        "internalType": "bool",
-                        "name": "approved",
-                        "type": "bool"
-                    }
-                ],
-                "name": "setApprovalForAll",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "bytes4",
-                        "name": "interfaceId",
-                        "type": "bytes4"
-                    }
-                ],
-                "name": "supportsInterface",
-                "outputs": [
-                    {
-                        "internalType": "bool",
-                        "name": "",
-                        "type": "bool"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [],
-                "name": "symbol",
-                "outputs": [
-                    {
-                        "internalType": "string",
-                        "name": "",
-                        "type": "string"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "tokenId",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "tokenURI",
-                "outputs": [
-                    {
-                        "internalType": "string",
-                        "name": "",
-                        "type": "string"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "address",
-                        "name": "from",
-                        "type": "address"
-                    },
-                    {
-                        "internalType": "address",
-                        "name": "to",
-                        "type": "address"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "tokenId",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "transferFrom",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            }
-        ];
-    </script>
-
-    <!-- External Scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.14/vue.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
 </body>
 </html>
