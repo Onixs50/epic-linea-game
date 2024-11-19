@@ -4,10 +4,10 @@ const AI_CONFIG = {
     // HuggingFace Settings
     HF_API_KEY: "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",
     HF_ENDPOINTS: {
-        // Mistral-7B for story generation (بهترین مدل زبانی رایگان)
+        // Mistral-7B for story generation 
         STORY: "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2",
         
-        // RunwayML Stable Diffusion v1.5 for images (بهترین مدل تصویری رایگان)
+        // RunwayML Stable Diffusion v1.5 for images 
         IMAGE: "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5"
     },
 
